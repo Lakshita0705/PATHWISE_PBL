@@ -1,0 +1,8 @@
+{
+  "name": "Pathwise",
+  "description": "A futuristic AI-driven career path optimization and mentorship platform for professionals.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
