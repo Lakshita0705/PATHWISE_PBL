@@ -1,5 +1,7 @@
 # PathWise — AI-Powered Career Roadmap & Mentorship Platform
 
+Live on: https://pathwise-vo23.onrender.com
+
 PathWise is an AI-driven career guidance platform that helps students become job-ready through personalized learning roadmaps, adaptive difficulty prediction, and credibility-based mentorship access.
 
 It combines structured learning, analytics, and AI to guide users step-by-step toward their chosen career path.
@@ -94,4 +96,5 @@ All metrics update dynamically.
 Many students follow unstructured tutorials without clear progression or mentorship access.  
 
 PathWise provides structured learning, AI-guided progression, and credibility-based mentorship in one platform.
+
 
