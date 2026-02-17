@@ -10,38 +10,38 @@ const Pricing: React.FC = () => {
       price: '0',
       desc: 'Perfect for exploring and starting your career transition.',
       features: [
-        '3 Roadmap Modules',
+        'Limited Roadmap Modules',
         'Basic Skill Assessment',
-        'Community Forum Access',
-        'Weekly Career Newsletter'
+        'Community Forum Access'
       ],
       cta: 'Start for Free',
       popular: false
     },
     {
       name: 'Architect',
-      price: '1,999',
+      price: '499',
       desc: 'Deep learning path with AI guidance for serious growth.',
       features: [
         'Full Roadmap Access',
         'AI Mentor Matching',
         'Advanced Credibility Engine',
-        'Unlimited Mock Interviews',
-        'Portfolio Hosting',
-        'Priority Discord Access'
+        'Best Recommendations',
+        'Priority Access to Mentors'
       ],
       cta: 'Go Pro Now',
       popular: true
     },
     {
       name: 'Enterprise',
-      price: '7,999',
+      price: '799',
       desc: 'Bespoke coaching and team-level development suites.',
       features: [
         '1-on-1 Executive Coaching',
-        'Custom Company Roadmaps',
+        'Custom Roadmaps',
         'Team Performance Metrics',
-        'Recruiter Matchmaking',
+        'Priority Access to Mentors',
+        'AI Mentor Matching',
+        'Best Recommendations',
         'Lifetime Access'
       ],
       cta: 'Contact Sales',
