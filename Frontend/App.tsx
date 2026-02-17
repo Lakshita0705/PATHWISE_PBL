@@ -13,7 +13,9 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Roadmap from "./pages/Roadmap";
+import Goals from "./pages/Goals";
 import Mentorship from "./pages/Mentorship";
+import Community from "./pages/Community";
 import Progress from "./pages/Progress";
 import Pricing from "./pages/Pricing";
 import Profile from "./pages/Profile";
@@ -155,10 +157,30 @@ const App: React.FC = () => {
               }
             />
             <Route
+              path="/goals"
+              element={
+                user ? (
+                  <Goals />
+                ) : (
+                  <Navigate to="/login" />
+                )
+              }
+            />
+            <Route
               path="/mentorship"
               element={
                 user ? (
                   <Mentorship />
+                ) : (
+                  <Navigate to="/login" />
+                )
+              }
+            />
+            <Route
+              path="/community"
+              element={
+                user ? (
+                  <Community />
                 ) : (
                   <Navigate to="/login" />
                 )

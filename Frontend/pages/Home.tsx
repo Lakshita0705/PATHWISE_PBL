@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { 
@@ -16,11 +16,15 @@ import {
   Trophy,
   Rocket,
   ShieldCheck,
-  Calendar
+  Calendar,
+  UserCheck
 } from 'lucide-react';
 import Footer from '../components/Footer';
+import MentorApplicationForm from '../components/MentorApplicationForm';
 
 const Home: React.FC = () => {
+  const [isMentorFormOpen, setIsMentorFormOpen] = useState(false);
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -181,9 +185,18 @@ const Home: React.FC = () => {
             <h2 className="text-4xl md:text-5xl font-black mb-6 tracking-tight">Elite Mentorship</h2>
             <p className="text-gray-400 text-lg">Direct access to industry leaders from the world's most innovative companies.</p>
           </div>
-          <Link to="/mentorship" className="px-8 py-3 rounded-xl border border-white/10 hover:bg-white/5 transition-all text-sm font-bold flex items-center gap-2 group">
-            View All Mentors <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-          </Link>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setIsMentorFormOpen(true)}
+              className="px-8 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-bold flex items-center gap-2 hover:opacity-90 transition-opacity group"
+            >
+              <UserCheck size={18} />
+              Become a Mentor
+            </button>
+            <Link to="/mentorship" className="px-8 py-3 rounded-xl border border-white/10 hover:bg-white/5 transition-all text-sm font-bold flex items-center gap-2 group">
+              View All Mentors <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+            </Link>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -223,6 +236,11 @@ const Home: React.FC = () => {
           ))}
         </div>
       </section>
+
+      <MentorApplicationForm
+        isOpen={isMentorFormOpen}
+        onClose={() => setIsMentorFormOpen(false)}
+      />
 
       <Footer />
     </div>

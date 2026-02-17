@@ -10,10 +10,18 @@ import {
   ChevronLeft,
   Menu,
   Rocket,
+  Target,
+  MessageSquare,
 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 
-const Sidebar: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
+interface SidebarProps {
+  onLogout: () => void;
+  user?: any;
+  currentRoadmapId?: string;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ onLogout }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [credibility, setCredibility] = useState(0);
@@ -22,7 +30,9 @@ const Sidebar: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
   const navItems = [
     { name: "Overview", path: "/dashboard", icon: LayoutDashboard },
     { name: "Roadmap", path: "/roadmap", icon: Map },
+    { name: "Goals", path: "/goals", icon: Target },
     { name: "Mentorship", path: "/mentorship", icon: Users },
+    { name: "Community", path: "/community", icon: MessageSquare },
     { name: "Progress", path: "/progress", icon: TrendingUp },
     { name: "Profile", path: "/profile", icon: Settings },
   ];

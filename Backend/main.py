@@ -1,13 +1,48 @@
+"""
+PathWise Backend: production-ready personalization engine, roadmap adaptation,
+and job market recommendation system. FastAPI app with modular structure.
+"""
+
 import os
-import joblib
-import numpy as np
+import sys
+
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
-from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI()
+from config import get_settings
+from api.routes import router as personalization_router
 
-# Enable CORS for frontend
+# Add Backend root to path for imports when running as script
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup: init DB if configured. Shutdown: cleanup."""
+    settings = get_settings()
+    if settings.database_url:
+        try:
+            from models import db_models  # noqa: F401 - register tables
+            from core.database import init_db
+            await init_db()
+        except Exception:
+            pass  # DB optional for personalization-only usage
+    yield
+    # Shutdown: close pools etc. if needed
+    pass
+
+
+app = FastAPI(
+    title="PathWise API",
+    description="Personalization engine, roadmap generation, and job market recommendations",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -16,36 +51,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load model and scaler safely
-BASE_DIR = os.path.dirname(__file__)
+app.include_router(personalization_router)
 
-model = joblib.load(os.path.join(BASE_DIR, "roadmap_model.pkl"))
-scaler = joblib.load(os.path.join(BASE_DIR, "scaler.pkl"))
 
-class Metrics(BaseModel):
-    engagement: float
-    velocity: float
-    mastery: float
-    credibility: float
-    experience: float
+@app.get("/health")
+def health():
+    """Health check for load balancers and monitoring."""
+    return {"status": "ok", "service": "pathwise-api"}
 
-@app.post("/predict")
-def predict_difficulty(metrics: Metrics):
-    input_data = np.array([[ 
-        metrics.engagement,
-        metrics.velocity,
-        metrics.mastery,
-        metrics.credibility,
-        metrics.experience
-    ]])
 
-    input_scaled = scaler.transform(input_data)
-
-    prediction = model.predict(input_scaled)
-
-    return {
-        "difficulty_level": int(prediction[0])
-    }
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(
+        "main:app",
+        host="127.0.0.1",
+        port=8000,
+        reload=get_settings().debug,
+    )
