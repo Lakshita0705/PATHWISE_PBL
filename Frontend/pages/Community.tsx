@@ -48,6 +48,7 @@ const Community: React.FC = () => {
   const [answerInputs, setAnswerInputs] = useState<Record<string, string>>({});
   const [editingAnswers, setEditingAnswers] = useState<Record<string, Answer | null>>({});
   const [loading, setLoading] = useState(true);
+  const [showPostSuccess, setShowPostSuccess] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -160,7 +161,16 @@ const Community: React.FC = () => {
         if (error) throw error;
       }
       await fetchQuestions();
-      setIsQuestionFormOpen(false);
+      if (!editingQuestion) {
+        // Show success message for new questions
+        setShowPostSuccess(true);
+        setIsQuestionFormOpen(false);
+        setTimeout(() => {
+          setShowPostSuccess(false);
+        }, 3000);
+      } else {
+        setIsQuestionFormOpen(false);
+      }
       setEditingQuestion(null);
       setQuestionFormData({ question: "", description: "" });
     } catch (err: any) {
@@ -257,25 +267,66 @@ const Community: React.FC = () => {
     );
   }
 
+  const openQuestionForm = () => {
+    setIsQuestionFormOpen(true);
+    setEditingQuestion(null);
+    setQuestionFormData({ question: "", description: "" });
+    setShowPostSuccess(false);
+  };
+
   return (
-    <div className="max-w-5xl mx-auto pb-20">
+    <div className="max-w-5xl mx-auto pb-20 relative">
+      {/* Success Message */}
+      {showPostSuccess && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          className="mb-6 p-4 rounded-xl bg-green-500/20 border border-green-500/30 flex items-center justify-between"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
+              <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-white font-medium">Question posted successfully!</p>
+              <p className="text-gray-400 text-sm">Your question is now visible to the community</p>
+            </div>
+          </div>
+          <button
+            onClick={openQuestionForm}
+            className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-medium hover:opacity-90 transition-opacity flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Post Another
+          </button>
+        </motion.div>
+      )}
+
       <div className="flex items-center justify-between mb-10">
         <div>
           <h1 className="text-3xl font-bold text-white mb-2">Community Q&A</h1>
           <p className="text-gray-400">Ask questions and help others by sharing your knowledge</p>
         </div>
         <button
-          onClick={() => {
-            setIsQuestionFormOpen(true);
-            setEditingQuestion(null);
-            setQuestionFormData({ question: "", description: "" });
-          }}
+          onClick={openQuestionForm}
           className="px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl text-white font-medium flex items-center gap-2 hover:opacity-90 transition-opacity"
         >
           <Plus className="w-5 h-5" />
           Ask Question
         </button>
       </div>
+
+      {/* Floating Action Button */}
+      <button
+        onClick={openQuestionForm}
+        className="fixed bottom-8 right-8 z-40 w-14 h-14 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg hover:scale-110 transition-transform flex items-center justify-center group"
+        aria-label="Post Question"
+      >
+        <Plus className="w-6 h-6 group-hover:rotate-90 transition-transform" />
+      </button>
 
       {/* Question Form Modal */}
       {isQuestionFormOpen && (
@@ -350,7 +401,7 @@ const Community: React.FC = () => {
             <h3 className="text-xl font-bold text-white mb-2">No questions yet</h3>
             <p className="text-gray-400 mb-6">Be the first to ask a question!</p>
             <button
-              onClick={() => setIsQuestionFormOpen(true)}
+              onClick={openQuestionForm}
               className="px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl text-white font-medium flex items-center gap-2 mx-auto hover:opacity-90 transition-opacity"
             >
               <Plus className="w-5 h-5" />
