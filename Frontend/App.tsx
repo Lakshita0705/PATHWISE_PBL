@@ -20,6 +20,11 @@ import Progress from "./pages/Progress";
 import Pricing from "./pages/Pricing";
 import Profile from "./pages/Profile";
 import CareerPaths from "./pages/CareerPaths";
+import MentorLogin from "./pages/MentorLogin";
+import MentorRegister from "./pages/MentorRegister";
+import MentorDashboard from "./pages/MentorDashboard";
+import MentorPending from "./pages/MentorPending";
+import Chat from "./pages/Chat";
 
 import Navbar from "./components/Navbar";
 import Sidebar from "./components/Sidebar";
@@ -30,6 +35,9 @@ import { supabase } from "./lib/supabaseClient";
 const App: React.FC = () => {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [accessLoading, setAccessLoading] = useState(true);
+  const [role, setRole] = useState<"student" | "mentor" | null>(null);
+  const [mentorApplicationStatus, setMentorApplicationStatus] = useState<string | null>(null);
 
   /* ---------------- AUTH SYNC WITH SUPABASE ---------------- */
 
@@ -53,6 +61,37 @@ const App: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    const syncRole = async () => {
+      setAccessLoading(true);
+      if (!user) {
+        setRole(null);
+        setMentorApplicationStatus(null);
+        setAccessLoading(false);
+        return;
+      }
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+      const nextRole =
+        profile?.role === "mentor" ? "mentor" : "student";
+      setRole(nextRole);
+
+      const { data: application } = await supabase
+        .from("mentor_applications")
+        .select("status")
+        .eq("applicant_user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      setMentorApplicationStatus(application?.status ?? null);
+      setAccessLoading(false);
+    };
+    syncRole();
+  }, [user]);
+
   /* ---------------- LAYOUT ---------------- */
 
   const Layout: React.FC<{ children: React.ReactNode }> = ({
@@ -66,17 +105,21 @@ const App: React.FC = () => {
       "/mentorship",
       "/progress",
       "/profile",
+      "/chat",
     ];
 
     const isDashboard = dashboardRoutes.includes(
       location.pathname
     );
 
-    const isAuthPage = ["/login", "/register"].includes(
-      location.pathname
-    );
+    const isAuthPage = [
+      "/login",
+      "/register",
+      "/mentor-login",
+      "/mentor-register",
+    ].includes(location.pathname);
 
-    if (isDashboard && user) {
+    if (isDashboard && user && role !== "mentor") {
       return (
         <div className="flex min-h-screen bg-[#0f0f0f]">
           <Sidebar
@@ -95,7 +138,7 @@ const App: React.FC = () => {
 
     return (
       <div className="min-h-screen flex flex-col relative">
-        {!isAuthPage && <Navbar user={user} />}
+        {!isAuthPage && <Navbar user={user} role={role} />}
         <div className="flex-1">{children}</div>
       </div>
     );
@@ -103,7 +146,7 @@ const App: React.FC = () => {
 
   /* ---------------- LOADING SCREEN ---------------- */
 
-  if (loading) {
+  if (loading || accessLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black text-white">
         Loading...
@@ -132,6 +175,38 @@ const App: React.FC = () => {
                 user ? <Navigate to="/dashboard" /> : <Register />
               }
             />
+            <Route
+              path="/mentor-login"
+              element={
+                user ? (
+                  role === "mentor" ? (
+                    <Navigate to="/mentor-dashboard" />
+                  ) : mentorApplicationStatus === "pending" ? (
+                    <Navigate to="/mentor-pending" />
+                  ) : (
+                    <Navigate to="/dashboard" />
+                  )
+                ) : (
+                  <MentorLogin />
+                )
+              }
+            />
+            <Route
+              path="/mentor-register"
+              element={
+                user ? (
+                  role === "mentor" ? (
+                    <Navigate to="/mentor-dashboard" />
+                  ) : mentorApplicationStatus === "pending" ? (
+                    <Navigate to="/mentor-pending" />
+                  ) : (
+                    <Navigate to="/dashboard" />
+                  )
+                ) : (
+                  <MentorRegister />
+                )
+              }
+            />
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/paths" element={<CareerPaths />} />
 
@@ -140,7 +215,53 @@ const App: React.FC = () => {
               path="/dashboard"
               element={
                 user ? (
-                  <Dashboard />
+                  mentorApplicationStatus === "pending" ? (
+                    <Navigate to="/mentor-pending" />
+                  ) : (
+                    <Dashboard />
+                  )
+                ) : (
+                  <Navigate to="/login" />
+                )
+              }
+            />
+            <Route
+              path="/mentor-dashboard"
+              element={
+                user ? (
+                  role === "mentor" ? (
+                    <MentorDashboard />
+                  ) : mentorApplicationStatus === "pending" ? (
+                    <Navigate to="/mentor-pending" />
+                  ) : (
+                    <Navigate to="/dashboard" />
+                  )
+                ) : (
+                  <Navigate to="/mentor-login" />
+                )
+              }
+            />
+            <Route
+              path="/mentor-pending"
+              element={
+                user ? (
+                  mentorApplicationStatus === "pending" ? (
+                    <MentorPending />
+                  ) : role === "mentor" ? (
+                    <Navigate to="/mentor-dashboard" />
+                  ) : (
+                    <Navigate to="/dashboard" />
+                  )
+                ) : (
+                  <Navigate to="/mentor-login" />
+                )
+              }
+            />
+            <Route
+              path="/chat/:otherUserId"
+              element={
+                user ? (
+                  <Chat />
                 ) : (
                   <Navigate to="/login" />
                 )

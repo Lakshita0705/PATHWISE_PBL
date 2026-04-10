@@ -3,15 +3,10 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, LogIn, Github, Chrome, Rocket } from 'lucide-react';
-import { User } from '../types';
 import { supabase } from '../lib/supabaseClient';
 
 
-interface LoginProps {
-  onLogin: (user: User) => void;
-}
-
-const Login: React.FC<LoginProps> = ({ onLogin }) => {
+const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -39,24 +34,16 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   if (data.user) {
     const { data: profileData } = await supabase
       .from('profiles')
-      .select('*')
+      .select('role')
       .eq('id', data.user.id)
       .single();
 
-    if (profileData) {
-      onLogin({
-        id: profileData.id,
-        name: profileData.name,
-        email: data.user.email!,
-        careerGoal: profileData.goal,
-        experienceLevel: profileData.experience_level,
-        skills: profileData.skills,
-        credibilityScore: profileData.credibility_score,
-        progress: 0,
-      });
-
-      navigate('/dashboard');
+    if (profileData?.role === 'mentor') {
+      navigate('/mentor-dashboard');
+      return;
     }
+
+    navigate('/dashboard');
   }
 };
 
@@ -138,6 +125,9 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
         <p className="mt-10 text-center text-gray-400 text-sm">
           Don't have an account? <Link to="/register" className="text-purple-400 font-black hover:underline">Join Now</Link>
+        </p>
+        <p className="mt-4 text-center text-gray-500 text-xs">
+          Are you a mentor? <Link to="/mentor-login" className="text-blue-400 font-bold hover:underline">Mentor Portal</Link>
         </p>
       </motion.div>
     </div>

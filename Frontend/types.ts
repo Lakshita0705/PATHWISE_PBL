@@ -8,6 +8,11 @@ export interface User {
   skills: string[];
   credibilityScore: number;
   progress: number;
+  role?: "student" | "mentor";
+  company?: string;
+  expertise?: string[];
+  rating?: number;
+  bio?: string;
 }
 
 export interface RoadmapModule {
@@ -28,4 +33,23 @@ export interface Mentor {
   expertise: string[];
   image: string;
   minCredibility: number;
+}
+
+export interface Message {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  text: string;
+  timestamp: string;
+}
+
+export interface Meeting {
+  id: string;
+  mentorId: string;
+  studentId: string;
+  studentName: string;
+  mentorName: string;
+  date: string;
+  time: string;
+  status: "scheduled" | "completed" | "cancelled";
 }

@@ -41,8 +41,10 @@ const MentorApplicationForm: React.FC<MentorApplicationFormProps> = ({
     setIsSubmitting(true);
 
     try {
+      const { data: authData } = await supabase.auth.getUser();
       const { data, error } = await supabase.from("mentor_applications").insert([
         {
+          applicant_user_id: authData.user?.id ?? null,
           full_name: formData.fullName,
           email: formData.email,
           educational_qualification: formData.educationalQualification,

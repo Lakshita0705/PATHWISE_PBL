@@ -7,10 +7,63 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
+import { useNavigate } from "react-router-dom";
 
 const Mentorship: React.FC = () => {
   const [mentors, setMentors] = useState<any[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string>("");
+  const navigate = useNavigate();
+
+  const fetchMentors = async () => {
+    setError("");
+    setLoading(true);
+
+    // Primary source: mentors table
+    const { data: mentorData, error: mentorErr } = await supabase
+      .from("mentors")
+      .select("*")
+      .order("rating", { ascending: false });
+
+    if (!mentorErr && mentorData && mentorData.length > 0) {
+      const withUnread = mentorData.map((m: any) => ({ ...m, unreadCount: 0 }));
+      setMentors(withUnread);
+      setLoading(false);
+      return;
+    }
+
+    // Fallback source: profiles with mentor role
+    const { data: profileMentors, error: profileErr } = await supabase
+      .from("profiles")
+      .select("id,name,skills")
+      .eq("role", "mentor")
+      .limit(100);
+
+    if (profileErr) {
+      setError(profileErr.message || mentorErr?.message || "Could not load mentors.");
+      setMentors([]);
+      setLoading(false);
+      return;
+    }
+
+    const normalized = (profileMentors || []).map((p: any) => ({
+      id: p.id,
+      name: p.name || "Mentor",
+      role: "Mentor",
+      company: "Pathwise Mentor",
+      rating: 5.0,
+      expertise: Array.isArray(p.skills) ? p.skills : [],
+      image_url: "https://placehold.co/200x200/png",
+    }));
+
+    if (mentorErr) {
+      // Show helpful message but still render fallback mentor list.
+      setError(`Mentors table unavailable (${mentorErr.message}). Showing approved mentor profiles.`);
+    }
+    setMentors(normalized.map((m) => ({ ...m, unreadCount: 0 })));
+    setLoading(false);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -18,19 +71,24 @@ const Mentorship: React.FC = () => {
       if (!user) return;
 
       setUserId(user.id);
+      await fetchMentors();
 
-      // Fetch mentors
-      const { data: mentorData, error } = await supabase
-        .from("mentors")
-        .select("*")
-        .order("rating", { ascending: false });
-
-      if (error) {
-        console.error(error);
-        return;
+      const { data: unreadRows } = await supabase
+        .from("messages")
+        .select("sender_id")
+        .eq("receiver_id", user.id)
+        .eq("is_read", false)
+        .limit(1000);
+      const unreadByMentor: Record<string, number> = {};
+      for (const row of unreadRows || []) {
+        unreadByMentor[row.sender_id] = (unreadByMentor[row.sender_id] || 0) + 1;
       }
-
-      setMentors(mentorData || []);
+      setMentors((prev) =>
+        prev.map((mentor) => ({
+          ...mentor,
+          unreadCount: unreadByMentor[mentor.id] || 0,
+        }))
+      );
     };
 
     fetchData();
@@ -79,6 +137,31 @@ const Mentorship: React.FC = () => {
         </p>
       </div>
 
+      {error && (
+        <div className="mb-6 p-4 rounded-2xl border border-yellow-500/20 bg-yellow-500/10 text-yellow-200 text-sm">
+          {error}
+        </div>
+      )}
+
+      {loading && (
+        <div className="p-6 rounded-2xl border border-white/10 bg-white/5 text-gray-300">
+          Loading mentors...
+        </div>
+      )}
+
+      {!loading && mentors.length === 0 && (
+        <div className="p-6 rounded-2xl border border-white/10 bg-white/5 text-gray-300 flex items-center justify-between gap-4">
+          <span>No mentors found yet. Once approved mentors are added, they will appear here.</span>
+          <button
+            type="button"
+            onClick={fetchMentors}
+            className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold"
+          >
+            Refresh
+          </button>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
         {mentors.map((mentor) => (
           <motion.div
@@ -88,9 +171,12 @@ const Mentorship: React.FC = () => {
           >
             <div className="mb-6">
               <img
-                src={mentor.image_url}
+                src={mentor.image_url || "https://placehold.co/200x200/png"}
                 alt={mentor.name}
                 className="w-20 h-20 rounded-2xl object-cover mb-4"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = "https://placehold.co/200x200/png";
+                }}
               />
 
               <div className="flex items-center gap-2 mb-2">
@@ -121,10 +207,11 @@ const Mentorship: React.FC = () => {
               </button>
 
               <button
+                onClick={() => navigate(`/chat/${mentor.id}`)}
                 className="w-full py-3 rounded-xl glass border border-white/5 text-gray-300 font-bold text-sm"
               >
                 <MessageSquare className="w-4 h-4 inline mr-2" />
-                Message
+                Message {mentor.unreadCount > 0 ? `(${mentor.unreadCount})` : ""}
               </button>
             </div>
 

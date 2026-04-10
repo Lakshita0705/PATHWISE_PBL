@@ -24,6 +24,7 @@ const Roadmap: React.FC = () => {
   const [roadmapData, setRoadmapData] = useState<any[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [selectedPath, setSelectedPath] = useState<string>("");
+  const [activeRoadmapTopic, setActiveRoadmapTopic] = useState<string>("");
   const [expandedResources, setExpandedResources] = useState<Set<number>>(new Set());
 
   /* ---------------- FETCH USER + ROADMAP ---------------- */
@@ -33,6 +34,7 @@ const Roadmap: React.FC = () => {
       .from("roadmaps")
       .select("*")
       .eq("user_id", uid)
+      .order("topic", { ascending: true })
       .order("order_index", { ascending: true });
 
     if (error) {
@@ -40,7 +42,17 @@ const Roadmap: React.FC = () => {
       return;
     }
 
-    setRoadmapData(data || []);
+    const nextData = data || [];
+    setRoadmapData(nextData);
+
+    if (!activeRoadmapTopic && nextData.length > 0) {
+      setActiveRoadmapTopic(nextData[0].topic);
+    } else if (
+      activeRoadmapTopic &&
+      !nextData.some((item) => item.topic === activeRoadmapTopic)
+    ) {
+      setActiveRoadmapTopic(nextData[0]?.topic || "");
+    }
   };
 
   useEffect(() => {
@@ -69,17 +81,18 @@ const Roadmap: React.FC = () => {
       return;
     }
 
-    // Confirm overwrite
+    // Confirm replace for the selected topic only
     const confirm = window.confirm(
-      "This will replace your existing roadmap. Continue?"
+      `This will replace your existing "${selectedPath}" roadmap (if any). Continue?`
     );
     if (!confirm) return;
 
-    // Delete existing roadmap
+    // Delete existing roadmap only for selected topic
     await supabase
       .from("roadmaps")
       .delete()
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .eq("topic", selectedPath);
 
     // Format steps
     const formatted = selected.roadmap.map(
@@ -107,6 +120,7 @@ const Roadmap: React.FC = () => {
       return;
     }
 
+    setActiveRoadmapTopic(selectedPath);
     await fetchRoadmap(userId);
   };
 
@@ -123,7 +137,7 @@ const Roadmap: React.FC = () => {
       .eq("id", module.id);
 
     // Unlock next
-    const next = roadmapData[index + 1];
+    const next = visibleRoadmap[index + 1];
     if (next) {
       await supabase
         .from("roadmaps")
@@ -160,8 +174,20 @@ const Roadmap: React.FC = () => {
 
   /* ---------------- PROGRESS ---------------- */
 
-  const total = roadmapData.length;
-  const completed = roadmapData.filter((m) => m.is_completed).length;
+  const topics = Array.from(
+    new Set(
+      roadmapData
+        .map((item) => item.topic)
+        .filter((topic): topic is string => Boolean(topic))
+    )
+  );
+
+  const visibleRoadmap = roadmapData.filter(
+    (item) => item.topic === activeRoadmapTopic
+  );
+
+  const total = visibleRoadmap.length;
+  const completed = visibleRoadmap.filter((m) => m.is_completed).length;
   const progress =
     total > 0 ? Math.round((completed / total) * 100) : 0;
 
@@ -260,7 +286,7 @@ const Roadmap: React.FC = () => {
     <div className="max-w-5xl mx-auto pb-20">
 
       {/* PATH SELECTOR */}
-      <div className="mb-10 flex items-center gap-4">
+      <div className="mb-10 flex flex-col sm:flex-row sm:items-center gap-4">
         <select
           value={selectedPath}
           onChange={(e) => setSelectedPath(e.target.value)}
@@ -283,6 +309,31 @@ const Roadmap: React.FC = () => {
         </button>
       </div>
 
+      {/* Existing Roadmaps */}
+      {topics.length > 0 && (
+        <div className="mb-8">
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-400 mb-3">
+            Your Roadmaps
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {topics.map((topic) => (
+              <button
+                key={topic}
+                type="button"
+                onClick={() => setActiveRoadmapTopic(topic)}
+                className={`px-4 py-2 rounded-lg text-sm transition-colors ${
+                  activeRoadmapTopic === topic
+                    ? "bg-purple-600 text-white"
+                    : "bg-white/5 text-gray-300 hover:bg-white/10"
+                }`}
+              >
+                {topic}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Progress */}
       <div className="mb-10">
         <div className="flex justify-between text-sm text-gray-400 mb-2">
@@ -304,9 +355,9 @@ const Roadmap: React.FC = () => {
         <div className="absolute left-3 top-0 bottom-0 w-0.5 bg-purple-500/20" />
 
         <div className="space-y-10">
-          {roadmapData.map((module, index) => {
+          {visibleRoadmap.map((module, index) => {
             const locked =
-              index !== 0 && !roadmapData[index - 1].is_completed;
+              index !== 0 && !visibleRoadmap[index - 1].is_completed;
 
             return (
               <motion.div
@@ -390,6 +441,13 @@ const Roadmap: React.FC = () => {
               </motion.div>
             );
           })}
+          {visibleRoadmap.length === 0 && (
+            <div className="p-6 rounded-2xl border border-white/10 bg-white/5 text-gray-400">
+              {topics.length === 0
+                ? "Generate your first roadmap to get started."
+                : "Select a roadmap topic to view modules."}
+            </div>
+          )}
         </div>
       </div>
     </div>

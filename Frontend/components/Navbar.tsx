@@ -7,11 +7,13 @@ import { User } from '../types';
 
 interface NavbarProps {
   user: User | null;
+  role?: "student" | "mentor" | null;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ user }) => {
+const Navbar: React.FC<NavbarProps> = ({ user, role }) => {
   const [isOpen, setIsOpen] = React.useState(false);
   const navigate = useNavigate();
+  const dashboardPath = role === "mentor" ? "/mentor-dashboard" : "/dashboard";
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 glass border-b border-white/5">
@@ -32,7 +34,7 @@ const Navbar: React.FC<NavbarProps> = ({ user }) => {
             <Link to="/pricing" className="text-gray-400 hover:text-white transition-colors">Pricing</Link>
             {user ? (
               <button 
-                onClick={() => navigate('/dashboard')}
+                onClick={() => navigate(dashboardPath)}
                 className="px-6 py-2 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 text-white font-medium hover:opacity-90 transition-all neon-glow"
               >
                 Go to Dashboard
@@ -70,7 +72,7 @@ const Navbar: React.FC<NavbarProps> = ({ user }) => {
             <div className="px-4 pt-2 pb-6 space-y-4">
               <Link to="/pricing" className="block text-gray-400 py-2">Pricing</Link>
               {user ? (
-                <Link to="/dashboard" className="block w-full text-center py-3 rounded-xl bg-purple-600 text-white">Dashboard</Link>
+                <Link to={dashboardPath} className="block w-full text-center py-3 rounded-xl bg-purple-600 text-white">Dashboard</Link>
               ) : (
                 <>
                   <Link to="/login" className="block text-gray-400 py-2">Login</Link>
