@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI Career Roadmap Generator</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #f5f5f3; color: #1a1a1a; min-height: 100vh; padding: 2rem 1rem; }
+  .container { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 500; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #666; margin-bottom: 24px; }
+  .card { background: #fff; border: 0.5px solid #e0e0e0; border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  label { display: block; font-size: 12px; font-weight: 500; color: #555; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.04em; }
+  input[type="text"] { width: 100%; padding: 9px 12px; border: 0.5px solid #d0d0d0; border-radius: 8px; font-size: 14px; outline: none; background: #fafafa; color: #1a1a1a; margin-bottom: 14px; }
+  input[type="text"]:focus { border-color: #534AB7; background: #fff; }
+  .level-row { display: flex; gap: 8px; margin-bottom: 18px; }
+  .level-btn { flex: 1; padding: 8px; font-size: 13px; border-radius: 8px; border: 0.5px solid #d0d0d0; background: #fafafa; color: #666; cursor: pointer; transition: all 0.15s; }
+  .level-btn.active-beginner { background: #0F6E56; color: #fff; border-color: #0F6E56; font-weight: 500; }
+  .level-btn.active-intermediate { background: #185FA5; color: #fff; border-color: #185FA5; font-weight: 500; }
+  .level-btn.active-advanced { background: #534AB7; color: #fff; border-color: #534AB7; font-weight: 500; }
+  .gen-btn { width: 100%; padding: 11px; font-size: 14px; font-weight: 500; background: #534AB7; color: #fff; border: none; border-radius: 8px; cursor: pointer; transition: opacity 0.15s; }
+  .gen-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .status-bar { background: #EEEDFE; border: 0.5px solid #AFA9EC; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 13px; color: #3C3489; display: none; }
+  .status-bar.visible { display: block; }
+  .error-bar { background: #FCEBEB; border: 0.5px solid #F09595; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; font-size: 13px; color: #791F1F; display: none; }
+  .error-bar.visible { display: block; }
+  .result-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; gap: 8px; }
+  .result-title { font-size: 15px; font-weight: 500; margin-bottom: 6px; }
+  .badges { display: flex; flex-wrap: wrap; gap: 6px; }
+  .badge { font-size: 11px; padding: 2px 9px; border-radius: 20px; font-weight: 500; }
+  .badge-purple { background: #EEEDFE; color: #3C3489; }
+  .badge-teal { background: #E1F5EE; color: #085041; }
+  .badge-blue { background: #E6F1FB; color: #0C447C; }
+  .badge-gray { background: #F1EFE8; color: #444441; }
+  .expand-btn { font-size: 12px; padding: 5px 11px; border: 0.5px solid #d0d0d0; border-radius: 8px; background: #fff; cursor: pointer; color: #555; flex-shrink: 0; }
+  .step-card { border: 0.5px solid #e0e0e0; border-radius: 12px; overflow: hidden; background: #fff; margin-bottom: 10px; }
+  .step-header { width: 100%; padding: 13px 16px; display: flex; align-items: flex-start; gap: 12px; background: none; border: none; cursor: pointer; text-align: left; }
+  .step-num { width: 26px; height: 26px; min-width: 26px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 500; margin-top: 1px; }
+  .step-title { font-size: 14px; font-weight: 500; color: #1a1a1a; margin-bottom: 2px; }
+  .step-preview { font-size: 12px; color: #666; line-height: 1.5; }
+  .step-arrow { font-size: 11px; color: #aaa; padding-top: 3px; flex-shrink: 0; transition: transform 0.18s; }
+  .step-arrow.open { transform: rotate(180deg); }
+  .step-body { padding: 4px 16px 16px 54px; border-top: 0.5px solid #eee; }
+  .step-desc { font-size: 13px; color: #555; line-height: 1.65; margin: 12px 0 16px; }
+  .res-label { font-size: 11px; font-weight: 500; color: #999; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 5px; }
+  .res-section { margin-bottom: 12px; }
+  .res-item { font-size: 13px; padding: 3px 0 3px 10px; border-left: 2px solid #e0e0e0; margin-bottom: 3px; color: #1a1a1a; }
+  .res-item a { color: #534AB7; text-decoration: none; }
+  .res-item a:hover { text-decoration: underline; }
+  .proj-item { font-size: 13px; padding: 5px 10px; border-radius: 6px; margin-bottom: 4px; }
+  .topics-hint { padding: 1rem 0; text-align: center; }
+  .topics-hint p { font-size: 12px; color: #999; margin-bottom: 10px; }
+  .topic-pills { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+  .topic-pill { font-size: 12px; padding: 4px 10px; border-radius: 20px; border: 0.5px solid #e0e0e0; color: #666; cursor: pointer; background: #fff; transition: all 0.12s; }
+  .topic-pill:hover { border-color: #534AB7; color: #534AB7; }
+  .footer-note { margin-top: 14px; font-size: 12px; color: #aaa; text-align: center; padding: 10px; }
+  .similarity-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .similarity-bar-bg { flex: 1; height: 4px; background: #eee; border-radius: 2px; }
+  .similarity-bar-fill { height: 100%; border-radius: 2px; background: #534AB7; }
+  .model-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; padding: 3px 8px; border-radius: 20px; background: #EEEDFE; color: #3C3489; border: 0.5px solid #AFA9EC; margin-bottom: 16px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: #534AB7; }
+  .dot.loading { animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+  #result-section { display: none; }
+  #topics-section { display: block; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>AI Career Roadmap Generator</h1>
+  <p class="subtitle">Powered by <strong>all-MiniLM-L6-v2</strong> transformer embeddings running in your browser — no API key, no server.</p>
+
+  <div class="card">
+    <div class="model-badge">
+      <div class="dot" id="model-dot"></div>
+      <span id="model-status">Loading transformer model...</span>
+    </div>
+
+    <label>Your current skills</label>
+    <input type="text" id="skills" placeholder="e.g. Python, pandas, basic ML, OpenCV, PyTorch" />
+
+    <label>Career goal</label>
+    <input type="text" id="goal" placeholder="e.g. become an AI engineer, master NLP, learn MLOps" />
+
+    <label>Experience level</label>
+    <div class="level-row">
+      <button class="level-btn active-beginner" data-level="beginner" onclick="setLevel('beginner')">Beginner</button>
+      <button class="level-btn" data-level="intermediate" onclick="setLevel('intermediate')">Intermediate</button>
+      <button class="level-btn" data-level="advanced" onclick="setLevel('advanced')">Advanced</button>
+    </div>
+
+    <div class="error-bar" id="error-bar"></div>
+    <button class="gen-btn" id="gen-btn" onclick="generate()" disabled>Waiting for model...</button>
+  </div>
+
+  <div class="status-bar" id="status-bar"></div>
+
+  <div id="topics-section">
+    <div class="topics-hint">
+      <p>Click a topic to auto-fill your goal</p>
+      <div class="topic-pills" id="topic-pills"></div>
+    </div>
+  </div>
+
+  <div id="result-section">
+    <div class="result-header">
+      <div>
+        <div class="result-title" id="result-title"></div>
+        <div class="badges" id="result-badges"></div>
+      </div>
+      <button class="expand-btn" id="expand-btn" onclick="toggleAll()">Expand all</button>
+    </div>
+    <div id="steps-container"></div>
+    <div class="footer-note" id="footer-note"></div>
+  </div>
+</div>
+
+<script type="module">
+import { pipeline, cos_sim } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js';
+
+const ROADMAP_DATA = [{"topic":"AI Engineering","roadmap":[{"step":1,"title":"Mathematics & Statistics Fundamentals","description":"Build strong foundations in linear algebra, probability, statistics, and calculus as they form the backbone of machine learning and AI.","resources":{"articles":[{"title":"Khan Academy - Linear Algebra","url":"https://www.khanacademy.org/math/linear-algebra"},{"title":"Statistics for Machine Learning","url":"https://towardsdatascience.com/statistics-for-machine-learning-1fa082e36f1f"}],"courses":[{"title":"Mathematics for Machine Learning - Coursera","url":"https://www.coursera.org/specializations/mathematics-machine-learning"},{"title":"Intro to Probability & Statistics - Udacity","url":"https://www.udacity.com/course/intro-to-statistics--st101"}],"videos":[{"title":"Linear Algebra Explained - YouTube","url":"https://www.youtube.com/watch?v=kjBOesZCoqc"},{"title":"Statistics for Data Science - YouTube","url":"https://www.youtube.com/watch?v=xxpc-HPKN28"}],"projects":["Implement matrix operations in Python","Build a probability distribution visualizer"]}},{"step":2,"title":"Programming with Python","description":"Learn Python for AI development. Master libraries like NumPy, Pandas, and Matplotlib for data handling and visualization.","resources":{"articles":[{"title":"Python for Beginners - W3Schools","url":"https://www.w3schools.com/python/"},{"title":"NumPy Tutorial - GeeksforGeeks","url":"https://www.geeksforgeeks.org/numpy-tutorial/"}],"courses":[{"title":"Python for Everybody - Coursera","url":"https://www.coursera.org/specializations/python"},{"title":"Complete Python Bootcamp - Udemy","url":"https://www.udemy.com/course/complete-python-bootcamp/"}],"videos":[{"title":"Python Crash Course - YouTube","url":"https://www.youtube.com/watch?v=rfscVS0vtbw"}],"projects":["Write a data cleaner script using Pandas","Build a simple data visualizer with Matplotlib"]}},{"step":3,"title":"Machine Learning Fundamentals","description":"Learn supervised and unsupervised algorithms, model evaluation, overfitting, and hyperparameter tuning.","resources":{"articles":[{"title":"ML Crash Course - Google","url":"https://developers.google.com/machine-learning/crash-course"},{"title":"Scikit-learn Documentation","url":"https://scikit-learn.org/stable/"}],"courses":[{"title":"Machine Learning by Andrew Ng - Coursera","url":"https://www.coursera.org/learn/machine-learning"},{"title":"Hands-On ML with Python - Udemy","url":"https://www.udemy.com/course/machinelearning/"}],"videos":[{"title":"Machine Learning Explained - YouTube","url":"https://www.youtube.com/watch?v=GwIo3gDZCVQ"}],"projects":["Build a spam email classifier","Train a house price prediction model"]}},{"step":4,"title":"Deep Learning & Neural Networks","description":"Understand neural networks, CNNs, RNNs, LSTMs, and transformers. Use TensorFlow and PyTorch for building models.","resources":{"articles":[{"title":"TensorFlow Documentation","url":"https://www.tensorflow.org/learn"}],"courses":[{"title":"Deep Learning Specialization - Coursera","url":"https://www.coursera.org/specializations/deep-learning"},{"title":"PyTorch for Deep Learning - Udemy","url":"https://www.udemy.com/course/pytorch-for-deep-learning-and-computer-vision/"}],"videos":[{"title":"Neural Networks Explained - YouTube","url":"https://www.youtube.com/watch?v=aircAruvnKk"}],"projects":["Build an image classifier using CNN","Create a text sentiment analysis model"]}},{"step":5,"title":"AI Deployment & MLOps","description":"Learn how to deploy AI models into production using Docker, Kubernetes, and cloud platforms. Understand model monitoring and scaling.","resources":{"articles":[{"title":"MLOps Guide - Microsoft","url":"https://learn.microsoft.com/en-us/azure/architecture/example-scenario/mlops/mlops"}],"courses":[{"title":"MLOps with TensorFlow - Coursera","url":"https://www.coursera.org/learn/mlops-tensorflow"}],"videos":[{"title":"MLOps Explained - YouTube","url":"https://www.youtube.com/watch?v=06-AZXmwHjo"}],"projects":["Deploy a deep learning model with Flask & Docker","Create a CI/CD pipeline for ML model updates"]}}]},{"topic":"Machine Learning","roadmap":[{"step":1,"title":"Mathematics & Python Basics","description":"Learn linear algebra, probability, statistics, and calculus basics. Master Python for ML including NumPy, Pandas, and Matplotlib.","resources":{"articles":[{"title":"Math for ML - Medium","url":"https://towardsdatascience.com/the-mathematics-of-machine-learning-894f046c568"}],"courses":[{"title":"Mathematics for Machine Learning - Coursera","url":"https://www.coursera.org/specializations/mathematics-machine-learning"}],"videos":[{"title":"Python for Data Science - YouTube","url":"https://www.youtube.com/watch?v=LHBE6Q9XlzI"}],"projects":["Implement linear regression from scratch","Analyze a dataset with Pandas"]}},{"step":2,"title":"Supervised & Unsupervised Learning","description":"Learn supervised ML algorithms like regression, classification, decision trees, and unsupervised learning like clustering and PCA.","resources":{"articles":[{"title":"ML Algorithms Explained - GeeksforGeeks","url":"https://www.geeksforgeeks.org/machine-learning/"}],"courses":[{"title":"Machine Learning by Andrew Ng - Coursera","url":"https://www.coursera.org/learn/machine-learning"}],"videos":[{"title":"Supervised vs Unsupervised Learning - YouTube","url":"https://www.youtube.com/watch?v=4b5d3muPQmA"}],"projects":["Build a spam email classifier","Cluster customers based on purchase history"]}},{"step":3,"title":"Deep Learning & Advanced ML","description":"Learn neural networks, CNNs, RNNs, transformers, and reinforcement learning with TensorFlow and PyTorch.","resources":{"articles":[{"title":"Deep Learning Guide - TensorFlow","url":"https://www.tensorflow.org/learn"}],"courses":[{"title":"Deep Learning Specialization - Coursera","url":"https://www.coursera.org/specializations/deep-learning"}],"videos":[{"title":"Neural Networks Crash Course - YouTube","url":"https://www.youtube.com/watch?v=aircAruvnKk"}],"projects":["Build an image classifier using CNNs","Create a sentiment analysis model using RNNs"]}}]},{"topic":"Deep Learning","roadmap":[{"step":1,"title":"Deep Learning Fundamentals","description":"Understand neural networks, activation functions, forward/backward propagation, loss functions, and optimization techniques.","resources":{"articles":[{"title":"Deep Learning Basics - Towards Data Science","url":"https://towardsdatascience.com/deep-learning-basics-2f09e7d79e15"}],"courses":[{"title":"Deep Learning Specialization - Coursera","url":"https://www.coursera.org/specializations/deep-learning"}],"videos":[{"title":"Deep Learning Full Course - YouTube","url":"https://www.youtube.com/watch?v=aircAruvnKk"}],"projects":["Build a simple image classifier using TensorFlow/Keras","Train a neural network to predict numerical data"]}},{"step":2,"title":"Advanced Deep Learning","description":"Learn CNNs, RNNs, LSTMs, GANs, and attention mechanisms for complex AI tasks.","resources":{"articles":[{"title":"Advanced Deep Learning - MIT","url":"http://introtodeeplearning.com/"}],"courses":[{"title":"Advanced AI & Deep Learning - Udemy","url":"https://www.udemy.com/course/advanced-ai-and-deep-learning/"}],"videos":[{"title":"Convolutional Neural Networks - YouTube","url":"https://www.youtube.com/watch?v=2-Ol7ZB0MmU"}],"projects":["Build a GAN to generate images","Develop a text sentiment classifier using LSTMs"]}}]},{"topic":"MLOps","roadmap":[{"step":1,"title":"Machine Learning Fundamentals","description":"Understand supervised, unsupervised, and reinforcement learning. Learn data preprocessing, model training, and evaluation.","resources":{"articles":[{"title":"Machine Learning Crash Course - Google","url":"https://developers.google.com/machine-learning/crash-course"}],"courses":[{"title":"Machine Learning - Coursera (Andrew Ng)","url":"https://www.coursera.org/learn/machine-learning"}],"videos":[{"title":"Machine Learning for Beginners - YouTube","url":"https://www.youtube.com/watch?v=GwIo3gDZCVQ"}],"projects":["Build a spam email classifier","Train a model to predict house prices"]}},{"step":2,"title":"MLOps Foundations","description":"Learn CI/CD for ML, model versioning, experiment tracking, and monitoring with MLflow, Kubeflow, and DVC.","resources":{"articles":[{"title":"MLOps Basics - Neptune.ai","url":"https://neptune.ai/blog/mlops"}],"courses":[{"title":"MLOps with TensorFlow - Coursera","url":"https://www.coursera.org/specializations/machine-learning-engineering-for-production-mlops"}],"videos":[{"title":"MLOps Explained - YouTube","url":"https://www.youtube.com/watch?v=06-AZXmwHjo"}],"projects":["Set up MLflow for model tracking","Automate training pipeline with DVC"]}},{"step":3,"title":"Deployment & Scaling","description":"Deploy ML models as APIs using Docker, Kubernetes, and cloud services. Focus on scalability and monitoring.","resources":{"articles":[{"title":"Serving ML Models - TensorFlow","url":"https://www.tensorflow.org/tfx/guide/serving"}],"courses":[{"title":"Production ML Systems - Udacity","url":"https://www.udacity.com/course/machine-learning-devops-engineer-nanodegree--nd0821"}],"videos":[{"title":"Deploy ML Models with FastAPI - YouTube","url":"https://www.youtube.com/watch?v=0sOvCWFmrtA"}],"projects":["Deploy a ML model using FastAPI and Docker","Build a Kubernetes pipeline for real-time predictions"]}}]},{"topic":"NLP","roadmap":[{"step":1,"title":"NLP Basics","description":"Understand text preprocessing, tokenization, stemming, lemmatization, and NLP libraries like NLTK and spaCy.","resources":{"articles":[{"title":"NLP Guide - Towards Data Science","url":"https://towardsdatascience.com/natural-language-processing-for-beginners-96f9c7e7f1e7"}],"courses":[{"title":"NLP with Python - Coursera","url":"https://www.coursera.org/learn/python-text-mining"}],"videos":[{"title":"NLP Tutorial for Beginners - YouTube","url":"https://www.youtube.com/watch?v=8Mpc9ukltVA"}],"projects":["Build a text classification model","Create a basic chatbot using rule-based NLP"]}},{"step":2,"title":"Advanced NLP","description":"Learn word embeddings, transformers, attention mechanisms, and Hugging Face Transformers framework.","resources":{"articles":[{"title":"Transformers for NLP - Hugging Face","url":"https://huggingface.co/docs/transformers/index"}],"courses":[{"title":"Advanced NLP - Udemy","url":"https://www.udemy.com/course/advanced-nlp-with-transformers/"}],"videos":[{"title":"Transformer Models Tutorial - YouTube","url":"https://www.youtube.com/watch?v=4Bdc55j80l8"}],"projects":["Build a sentiment analysis model using transformers","Develop a question-answering system using BERT or GPT"]}}]},{"topic":"Data Science","roadmap":[{"step":1,"title":"Python & Data Analysis Basics","description":"Learn Python fundamentals and key libraries including NumPy and Pandas for data analysis.","resources":{"articles":[{"title":"Python Tutorial - W3Schools","url":"https://www.w3schools.com/python/"},{"title":"Pandas Documentation","url":"https://pandas.pydata.org/docs/"}],"courses":[{"title":"Python for Data Science - Coursera","url":"https://www.coursera.org/learn/python-for-data-science"}],"videos":[{"title":"Python for Data Science - YouTube","url":"https://www.youtube.com/watch?v=_uQrJ0TkZlc"}],"projects":["Analyze a dataset with Pandas","Build a CSV file data cleaner"]}},{"step":2,"title":"Data Visualization & Statistics","description":"Learn probability, descriptive statistics, and visualize data with Matplotlib, Seaborn, and Plotly.","resources":{"articles":[{"title":"Seaborn Documentation","url":"https://seaborn.pydata.org/"}],"courses":[{"title":"Data Visualization with Python - Coursera","url":"https://www.coursera.org/learn/python-for-data-visualization"}],"videos":[{"title":"Data Visualization with Matplotlib & Seaborn - YouTube","url":"https://www.youtube.com/watch?v=0P7QnIQDBJY"}],"projects":["Visualize a dataset","Build an interactive dashboard"]}},{"step":3,"title":"Machine Learning Basics","description":"Learn ML concepts like supervised vs unsupervised learning, regression, classification, and clustering with scikit-learn.","resources":{"articles":[{"title":"Scikit-learn Documentation","url":"https://scikit-learn.org/stable/"}],"courses":[{"title":"Machine Learning - Coursera (Andrew Ng)","url":"https://www.coursera.org/learn/machine-learning"}],"videos":[{"title":"Machine Learning Crash Course - YouTube","url":"https://www.youtube.com/watch?v=Gv9_4yMHFhI"}],"projects":["Predict housing prices","Build a spam classifier"]}}]},{"topic":"Full Stack Development","roadmap":[{"step":1,"title":"HTML & CSS Fundamentals","description":"Learn the basics of web structure and styling. Master CSS selectors, box model, flexbox, grid, and responsive design.","resources":{"articles":[{"title":"HTML Tutorial - W3Schools","url":"https://www.w3schools.com/html/"},{"title":"CSS Guide - MDN","url":"https://developer.mozilla.org/en-US/docs/Web/CSS"}],"courses":[{"title":"Responsive Web Design - freeCodeCamp","url":"https://www.freecodecamp.org/learn/responsive-web-design/"}],"videos":[{"title":"HTML Full Course for Beginners - YouTube","url":"https://www.youtube.com/watch?v=pQN-pnXPaVg"}],"projects":["Build a personal portfolio page","Create a responsive landing page"]}},{"step":2,"title":"JavaScript Basics","description":"Understand JavaScript fundamentals including ES6 features and DOM manipulation.","resources":{"articles":[{"title":"JavaScript Guide - MDN","url":"https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide"}],"courses":[{"title":"The Complete JavaScript Course - Udemy","url":"https://www.udemy.com/course/the-complete-javascript-course/"}],"videos":[{"title":"JavaScript Tutorial for Beginners - YouTube","url":"https://www.youtube.com/watch?v=W6NZfCO5SIk"}],"projects":["Build a to-do list app","Create a digital clock"]}},{"step":3,"title":"Frontend Framework (React)","description":"Learn React: JSX, components, props, state, hooks, and routing.","resources":{"articles":[{"title":"React Docs","url":"https://react.dev/learn"}],"courses":[{"title":"Full Modern React Course - Udemy","url":"https://www.udemy.com/course/react-the-complete-guide/"}],"videos":[{"title":"React Crash Course - YouTube","url":"https://www.youtube.com/watch?v=w7ejDZ8SWv8"}],"projects":["Build a weather app with React","Create a movie search app"]}},{"step":4,"title":"Backend Development","description":"Learn Node.js and Express. Understand routing, middleware, REST APIs, and error handling.","resources":{"articles":[{"title":"Node.js Docs","url":"https://nodejs.org/en/docs/"}],"courses":[{"title":"Backend Development with Node.js - Coursera","url":"https://www.coursera.org/specializations/backend-development"}],"videos":[{"title":"Node.js Crash Course - Traversy Media","url":"https://www.youtube.com/watch?v=fBNz5xF-Kx4"}],"projects":["Build a notes API","Develop a blog backend"]}},{"step":5,"title":"Databases","description":"Learn relational (MySQL, PostgreSQL) and NoSQL (MongoDB) databases. Understand schemas, queries, indexing.","resources":{"articles":[{"title":"SQL Tutorial - W3Schools","url":"https://www.w3schools.com/sql/"}],"courses":[{"title":"MongoDB for Beginners - MongoDB University","url":"https://learn.mongodb.com/"}],"videos":[{"title":"SQL Tutorial - FreeCodeCamp","url":"https://www.youtube.com/watch?v=HXV3zeQKqGY"}],"projects":["Create a student records database","Build a blog database schema"]}}]},{"topic":"DevOps","roadmap":[{"step":1,"title":"Linux & Command Line Basics","description":"Learn fundamental Linux commands, file system navigation, permissions, and shell scripting.","resources":{"articles":[{"title":"Linux Basics - GeeksforGeeks","url":"https://www.geeksforgeeks.org/linux-commands/"}],"courses":[{"title":"Linux for Beginners - Coursera","url":"https://www.coursera.org/learn/linux"}],"videos":[{"title":"Linux Tutorial for Beginners - YouTube","url":"https://www.youtube.com/watch?v=iwolPf6kN-k"}],"projects":["Write a shell script to automate backups"]}},{"step":2,"title":"Version Control with Git","description":"Master commits, branches, merging, rebasing, and GitHub collaboration.","resources":{"articles":[{"title":"Git Tutorial - Atlassian","url":"https://www.atlassian.com/git/tutorials"}],"courses":[{"title":"Version Control with Git - Coursera","url":"https://www.coursera.org/learn/introduction-git-github"}],"videos":[{"title":"Git & GitHub Crash Course - YouTube","url":"https://www.youtube.com/watch?v=RGOj5yH7evk"}],"projects":["Create a GitHub repository","Manage branching and merging"]}},{"step":3,"title":"CI/CD Pipelines","description":"Automate testing, integration, and deployment with GitHub Actions and Jenkins.","resources":{"articles":[{"title":"CI/CD Explained - RedHat","url":"https://www.redhat.com/en/topics/devops/what-is-ci-cd"}],"courses":[{"title":"CI/CD with GitHub Actions - Udemy","url":"https://www.udemy.com/course/github-actions/"}],"videos":[{"title":"CI/CD Pipeline Tutorial - YouTube","url":"https://www.youtube.com/watch?v=scEDHsr3APg"}],"projects":["Set up a GitHub Actions pipeline"]}},{"step":4,"title":"Docker & Containerization","description":"Build, ship, and run apps in containers. Understand Dockerfiles, images, volumes, and networking.","resources":{"articles":[{"title":"Docker Overview - Docker Docs","url":"https://docs.docker.com/get-started/overview/"}],"courses":[{"title":"Docker Mastery - Udemy","url":"https://www.udemy.com/course/docker-mastery/"}],"videos":[{"title":"Docker Crash Course - YouTube","url":"https://www.youtube.com/watch?v=3c-iBn73dDE"}],"projects":["Dockerize a Node.js app","Create a Docker Compose setup"]}},{"step":5,"title":"Kubernetes","description":"Scale and manage containers. Understand pods, services, deployments, and ingress.","resources":{"articles":[{"title":"Kubernetes Basics - Kubernetes Docs","url":"https://kubernetes.io/docs/tutorials/kubernetes-basics/"}],"courses":[{"title":"Kubernetes Hands-on - Udemy","url":"https://www.udemy.com/course/learn-kubernetes/"}],"videos":[{"title":"Kubernetes Crash Course - YouTube","url":"https://www.youtube.com/watch?v=d6WC5n9G_sM"}],"projects":["Deploy a multi-container app with Kubernetes"]}}]},{"topic":"Cybersecurity","roadmap":[{"step":1,"title":"Networking & Security Fundamentals","description":"Understand TCP/IP, firewalls, VPNs, and basic security concepts like authentication and encryption.","resources":{"articles":[{"title":"Cybersecurity Basics - IBM","url":"https://www.ibm.com/topics/cybersecurity"}],"courses":[{"title":"Introduction to Cybersecurity - Coursera","url":"https://www.coursera.org/learn/intro-cyber-security"}],"videos":[{"title":"Cybersecurity Basics Explained - YouTube","url":"https://www.youtube.com/watch?v=9U5XfZ0J3pU"}],"projects":["Set up a firewall and test access control"]}},{"step":2,"title":"Ethical Hacking & Penetration Testing","description":"Learn about vulnerabilities, exploits, and penetration testing using Kali Linux, Metasploit, and Burp Suite.","resources":{"articles":[{"title":"OWASP Top 10","url":"https://owasp.org/www-project-top-ten/"}],"courses":[{"title":"CEH Course - Udemy","url":"https://www.udemy.com/course/learn-ethical-hacking-from-scratch/"}],"videos":[{"title":"Penetration Testing Tutorial - YouTube","url":"https://www.youtube.com/watch?v=3Kq1MIfTWCE"}],"projects":["Perform a penetration test on a sample web app"]}}]},{"topic":"Generative AI","roadmap":[{"step":1,"title":"Generative AI Fundamentals","description":"Learn AI basics, neural networks, and generative models like GANs, VAEs, and transformers.","resources":{"articles":[{"title":"Generative AI Overview - Towards Data Science","url":"https://towardsdatascience.com/generative-ai-explained-6571442b4b9c"}],"courses":[{"title":"Generative AI Specialization - Coursera","url":"https://www.coursera.org/specializations/generative-ai"}],"videos":[{"title":"Generative AI Tutorial - YouTube","url":"https://www.youtube.com/watch?v=Vf_t5c0Z4fA"}],"projects":["Generate images using a GAN model","Build a text generator"]}},{"step":2,"title":"Generative AI Advanced","description":"Learn fine-tuning LLMs, diffusion models, prompt engineering, and building AI-powered applications.","resources":{"articles":[{"title":"Diffusion Models Explained","url":"https://lilianweng.github.io/lil-log/2021/07/11/diffusion-models.html"}],"courses":[{"title":"Advanced Generative AI - Udemy","url":"https://www.udemy.com/course/advanced-generative-ai/"}],"videos":[{"title":"Generative AI Projects - YouTube","url":"https://www.youtube.com/watch?v=IxlF3hZ1_yQ"}],"projects":["Fine-tune a pre-trained GPT model","Develop an AI image generation web app"]}}]},{"topic":"Data Analysis","roadmap":[{"step":1,"title":"Excel & Spreadsheets","description":"Learn Excel basics, formulas, pivot tables, and data visualization for business analytics.","resources":{"articles":[{"title":"Excel Basics Tutorial","url":"https://exceljet.net/excel-tutorial"}],"courses":[{"title":"Excel Skills for Business - Coursera","url":"https://www.coursera.org/specializations/excel"}],"videos":[{"title":"Excel for Beginners - YouTube","url":"https://www.youtube.com/watch?v=Vl0H-qTclOg"}],"projects":["Create a sales dashboard in Excel"]}},{"step":2,"title":"SQL for Data Analysis","description":"Master SQL queries, joins, aggregations, and window functions.","resources":{"articles":[{"title":"SQL Basics - W3Schools","url":"https://www.w3schools.com/sql/"}],"courses":[{"title":"SQL for Data Science - Coursera","url":"https://www.coursera.org/learn/sql-for-data-science"}],"videos":[{"title":"SQL Crash Course - YouTube","url":"https://www.youtube.com/watch?v=HXV3zeQKqGY"}],"projects":["Analyze e-commerce data with SQL"]}},{"step":3,"title":"Data Visualization","description":"Communicate insights using Tableau, Power BI, and Python visualization libraries.","resources":{"articles":[{"title":"Data Viz with Python - GeeksforGeeks","url":"https://www.geeksforgeeks.org/data-visualization-in-python/"}],"courses":[{"title":"Data Visualization with Tableau - Coursera","url":"https://www.coursera.org/specializations/data-visualization"}],"videos":[{"title":"Data Visualization in Python - YouTube","url":"https://www.youtube.com/watch?v=GPVsHOlRBBI"}],"projects":["Build a Tableau sales dashboard","Visualize a public dataset in Python"]}},{"step":4,"title":"Python for Data Analysis","description":"Use Pandas, NumPy, and Seaborn for data wrangling, cleaning, and exploratory data analysis (EDA).","resources":{"articles":[{"title":"Pandas Documentation","url":"https://pandas.pydata.org/docs/"}],"courses":[{"title":"Data Analysis with Python - freeCodeCamp","url":"https://www.freecodecamp.org/learn/data-analysis-with-python/"}],"videos":[{"title":"Pandas Crash Course - YouTube","url":"https://www.youtube.com/watch?v=vmEHCJofslg"}],"projects":["Analyze Netflix dataset with Pandas","Perform EDA on stock market data"]}}]}];
+
+const STEP_COLORS = ["#534AB7","#0F6E56","#185FA5","#993C1D","#3B6D11","#854F0B","#993556","#444441"];
+const SKIP_BASICS_FOR = ["intermediate","advanced"];
+const SKIP_ADVANCED_FOR = ["advanced"];
+const BASIC_KEYWORDS = ["basics","fundamentals","introduction","getting started","basics &"];
+const ADVANCED_KEYWORDS = ["advanced","production","scaling","enterprise","deployment & scaling"];
+
+let extractor = null;
+let topicEmbeddings = {};
+let currentLevel = "beginner";
+let expandedMap = {};
+let allExpanded = false;
+let lastRoadmap = null;
+
+async function loadModel() {
+  setStatus("Downloading all-MiniLM-L6-v2 (first load ~23MB, cached after)...");
+  try {
+    extractor = await pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2", {
+      quantized: true,
+      progress_callback: (p) => {
+        if (p.status === "downloading") {
+          const pct = p.total ? Math.round((p.loaded / p.total) * 100) : 0;
+          setStatus(`Downloading model: ${pct}%`);
+        }
+      }
+    });
+    setStatus("Embedding topic knowledge base...");
+    await embedTopics();
+    clearStatus();
+    document.getElementById("model-dot").classList.remove("loading");
+    document.getElementById("model-status").textContent = "all-MiniLM-L6-v2 ready";
+    document.getElementById("gen-btn").disabled = false;
+    document.getElementById("gen-btn").textContent = "Generate roadmap";
+  } catch (e) {
+    setStatus("Failed to load model: " + e.message, true);
+  }
+}
+
+async function embed(text) {
+  const out = await extractor(text, { pooling: "mean", normalize: true });
+  return Array.from(out.data);
+}
+
+async function embedTopics() {
+  for (const item of ROADMAP_DATA) {
+    const text = item.topic + " " + item.roadmap.map(s => s.title + " " + s.description).join(" ");
+    topicEmbeddings[item.topic] = await embed(text);
+  }
+}
+
+function cosSim(a, b) {
+  let dot = 0, normA = 0, normB = 0;
+  for (let i = 0; i < a.length; i++) { dot += a[i]*b[i]; normA += a[i]*a[i]; normB += b[i]*b[i]; }
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB) + 1e-9);
+}
+
+function setLevel(l) {
+  currentLevel = l;
+  document.querySelectorAll(".level-btn").forEach(b => {
+    b.className = "level-btn" + (b.dataset.level === l ? " active-" + l : "");
+  });
+}
+
+function setStatus(msg, isErr = false) {
+  const bar = document.getElementById("status-bar");
+  bar.textContent = msg;
+  bar.classList.add("visible");
+}
+function clearStatus() {
+  document.getElementById("status-bar").classList.remove("visible");
+}
+function showError(msg) {
+  const bar = document.getElementById("error-bar");
+  bar.textContent = msg;
+  bar.classList.add("visible");
+}
+function clearError() {
+  document.getElementById("error-bar").classList.remove("visible");
+}
+
+function adaptSteps(steps, level) {
+  if (level === "beginner") return steps.map((s, i) => ({ ...s, step: i + 1 }));
+  let filtered = steps.filter(s => {
+    const t = s.title.toLowerCase();
+    if (level === "intermediate" && BASIC_KEYWORDS.some(k => t.startsWith(k))) return false;
+    if (level === "advanced" && (BASIC_KEYWORDS.some(k => t.startsWith(k)))) return false;
+    return true;
+  });
+  if (filtered.length < 2) filtered = steps.slice(-3);
+  return filtered.map((s, i) => ({ ...s, step: i + 1 }));
+}
+
+window.generate = async function() {
+  const skills = document.getElementById("skills").value.trim();
+  const goal = document.getElementById("goal").value.trim();
+  clearError();
+  if (!skills || !goal) { showError("Please fill in both fields."); return; }
+  if (!extractor) { showError("Model not loaded yet."); return; }
+
+  const btn = document.getElementById("gen-btn");
+  btn.disabled = true;
+  btn.textContent = "Computing embeddings...";
+  setStatus("Encoding your query with transformer model...");
+
+  try {
+    const queryVec = await embed(`${skills} ${goal} ${currentLevel}`);
+    setStatus("Retrieving best matching roadmaps...");
+
+    const scored = ROADMAP_DATA.map(item => ({
+      ...item,
+      similarity: cosSim(queryVec, topicEmbeddings[item.topic])
+    })).sort((a, b) => b.similarity - a.similarity);
+
+    const top2 = scored.slice(0, 2);
+    let steps = [...top2[0].roadmap];
+
+    if (top2[1] && top2[1].similarity > 0.3) {
+      top2[1].roadmap.forEach(s => {
+        const isDupe = steps.some(e => cosSim(
+          e.title.toLowerCase().split("").map(c => c.charCodeAt(0)),
+          s.title.toLowerCase().split("").map(c => c.charCodeAt(0))
+        ) > 0.8 || e.title.toLowerCase() === s.title.toLowerCase());
+        if (!isDupe) steps.push(s);
+      });
+    }
+
+    const adapted = adaptSteps(steps, currentLevel);
+    const levelLabel = { beginner: "Beginner", intermediate: "Intermediate", advanced: "Advanced" }[currentLevel];
+
+    lastRoadmap = {
+      goal: `${levelLabel} roadmap: ${goal}`,
+      topic: top2[0].topic,
+      level: currentLevel,
+      retrievedFrom: top2.filter(t => t.similarity > 0.25).map(t => ({ topic: t.topic, sim: t.similarity })),
+      roadmap: adapted
+    };
+
+    clearStatus();
+    renderResult(lastRoadmap);
+  } catch (e) {
+    clearStatus();
+    showError("Error during generation: " + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Generate roadmap";
+  }
+};
+
+function renderResult(data) {
+  document.getElementById("topics-section").style.display = "none";
+  document.getElementById("result-section").style.display = "block";
+  expandedMap = { 0: true };
+  allExpanded = false;
+
+  document.getElementById("result-title").textContent = data.goal;
+
+  const levelColor = { beginner: "teal", intermediate: "blue", advanced: "purple" }[data.level] || "gray";
+  let badgesHTML = `<span class="badge badge-${levelColor}">${data.level}</span>`;
+  data.retrievedFrom.forEach(r => {
+    const pct = Math.round(r.sim * 100);
+    badgesHTML += `<span class="badge badge-gray">${r.topic} · ${pct}% match</span>`;
+  });
+  badgesHTML += `<span class="badge badge-gray">${data.roadmap.length} steps</span>`;
+  document.getElementById("result-badges").innerHTML = badgesHTML;
+
+  renderSteps(data.roadmap);
+  document.getElementById("footer-note").textContent =
+    `Semantic retrieval via all-MiniLM-L6-v2 · ${ROADMAP_DATA.length} topics in knowledge base · runs 100% in browser`;
+}
+
+function renderSteps(steps) {
+  const container = document.getElementById("steps-container");
+  container.innerHTML = "";
+  steps.forEach((step, i) => {
+    const color = STEP_COLORS[i % STEP_COLORS.length];
+    const isOpen = !!expandedMap[i];
+    const div = document.createElement("div");
+    div.className = "step-card";
+    div.id = `step-${i}`;
+
+    const resources = step.resources || {};
+    const cats = [
+      { key: "courses", label: "Courses", icon: "Courses" },
+      { key: "articles", label: "Articles", icon: "Articles" },
+      { key: "videos", label: "Videos", icon: "Videos" },
+    ];
+    let resHTML = "";
+    cats.forEach(({ key, label }) => {
+      const list = resources[key];
+      if (!list || !list.length) return;
+      resHTML += `<div class="res-section"><div class="res-label">${label}</div>`;
+      list.forEach(r => {
+        const content = typeof r === "string" ? r : `<a href="${r.url}" target="_blank">${r.title}</a>`;
+        resHTML += `<div class="res-item">${content}</div>`;
+      });
+      resHTML += `</div>`;
+    });
+
+    let projHTML = "";
+    if (step.projects?.length) {
+      projHTML = `<div class="res-section"><div class="res-label">Projects</div>`;
+      step.projects.forEach(p => {
+        projHTML += `<div class="proj-item" style="background:${color}14;">${p}</div>`;
+      });
+      projHTML += `</div>`;
+    }
+
+    div.innerHTML = `
+      <button class="step-header" onclick="toggleStep(${i})">
+        <div class="step-num" style="background:${color};">${step.step}</div>
+        <div style="flex:1;">
+          <div class="step-title">${step.title}</div>
+          <div class="step-preview">${step.description.slice(0,85)}${step.description.length>85?"...":""}</div>
+        </div>
+        <div class="step-arrow ${isOpen ? 'open' : ''}" id="arrow-${i}">&#9660;</div>
+      </button>
+      <div class="step-body" id="body-${i}" style="display:${isOpen ? 'block' : 'none'};">
+        <p class="step-desc">${step.description}</p>
+        ${resHTML}${projHTML}
+      </div>`;
+    container.appendChild(div);
+  });
+}
+
+window.toggleStep = function(i) {
+  expandedMap[i] = !expandedMap[i];
+  document.getElementById(`body-${i}`).style.display = expandedMap[i] ? "block" : "none";
+  const arrow = document.getElementById(`arrow-${i}`);
+  if (expandedMap[i]) arrow.classList.add("open"); else arrow.classList.remove("open");
+};
+
+window.toggleAll = function() {
+  if (!lastRoadmap) return;
+  allExpanded = !allExpanded;
+  lastRoadmap.roadmap.forEach((_, i) => { expandedMap[i] = allExpanded; });
+  renderSteps(lastRoadmap.roadmap);
+  document.getElementById("expand-btn").textContent = allExpanded ? "Collapse all" : "Expand all";
+};
+
+function renderTopicPills() {
+  const container = document.getElementById("topic-pills");
+  [...new Set(ROADMAP_DATA.map(d => d.topic))].forEach(t => {
+    const span = document.createElement("span");
+    span.className = "topic-pill";
+    span.textContent = t;
+    span.onclick = () => { document.getElementById("goal").value = t; };
+    container.appendChild(span);
+  });
+}
+
+document.getElementById("model-dot").classList.add("loading");
+renderTopicPills();
+loadModel();
+
+document.getElementById("skills").addEventListener("keydown", e => { if (e.key === "Enter") generate(); });
+document.getElementById("goal").addEventListener("keydown", e => { if (e.key === "Enter") generate(); });
+</script>
+</body>
+</html>
