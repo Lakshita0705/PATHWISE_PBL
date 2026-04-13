@@ -49,6 +49,35 @@ const Community: React.FC = () => {
   const [editingAnswers, setEditingAnswers] = useState<Record<string, Answer | null>>({});
   const [loading, setLoading] = useState(true);
   const [showPostSuccess, setShowPostSuccess] = useState(false);
+  const [usingLocalCommunityMode, setUsingLocalCommunityMode] = useState(false);
+
+  const getLocalQuestions = (_uid?: string): Question[] => {
+    try {
+      const raw = localStorage.getItem("community_questions_shared");
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const setLocalQuestions = (_uid: string, data: Question[]) => {
+    localStorage.setItem("community_questions_shared", JSON.stringify(data));
+  };
+
+  const getLocalAnswers = (_uid?: string): Answer[] => {
+    try {
+      const raw = localStorage.getItem("community_answers_shared");
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const setLocalAnswers = (_uid: string, data: Answer[]) => {
+    localStorage.setItem("community_answers_shared", JSON.stringify(data));
+  };
 
   useEffect(() => {
     const init = async () => {
@@ -70,6 +99,7 @@ const Community: React.FC = () => {
   }, []);
 
   const fetchQuestions = async () => {
+    if (!userId) return;
     const { data, error } = await supabase
       .from("community_questions")
       .select("*")
@@ -77,6 +107,13 @@ const Community: React.FC = () => {
 
     if (error) {
       console.error(error);
+      const localQuestions = getLocalQuestions(userId).map((q) => ({
+        ...q,
+        user_name: q.user_name || userName || "You",
+      }));
+      setQuestions(localQuestions);
+      await fetchAnswersForQuestions(localQuestions.map((q) => q.id));
+      setUsingLocalCommunityMode(true);
       return;
     }
 
@@ -95,11 +132,17 @@ const Community: React.FC = () => {
       })
     );
 
-    setQuestions(questionsWithUsers);
-    await fetchAnswersForQuestions(questionsWithUsers.map((q) => q.id));
+    const localQuestions = getLocalQuestions(userId);
+    const merged = [...questionsWithUsers, ...localQuestions].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    setQuestions(merged);
+    await fetchAnswersForQuestions(merged.map((q) => q.id));
+    setUsingLocalCommunityMode(false);
   };
 
   const fetchAnswersForQuestions = async (questionIds: string[]) => {
+    if (!userId) return;
     if (questionIds.length === 0) return;
     const { data, error } = await supabase
       .from("community_answers")
@@ -109,6 +152,15 @@ const Community: React.FC = () => {
 
     if (error) {
       console.error(error);
+      const localAnswers = getLocalAnswers(userId);
+      const groupedLocal: Record<string, Answer[]> = {};
+      localAnswers.forEach((a) => {
+        if (questionIds.includes(a.question_id)) {
+          if (!groupedLocal[a.question_id]) groupedLocal[a.question_id] = [];
+          groupedLocal[a.question_id].push(a);
+        }
+      });
+      setAnswers(groupedLocal);
       return;
     }
 
@@ -132,6 +184,11 @@ const Community: React.FC = () => {
       if (!grouped[a.question_id]) grouped[a.question_id] = [];
       grouped[a.question_id].push(a);
     });
+    const localAnswers = getLocalAnswers(userId);
+    localAnswers.forEach((a) => {
+      if (!grouped[a.question_id]) grouped[a.question_id] = [];
+      grouped[a.question_id].push(a);
+    });
     setAnswers(grouped);
   };
 
@@ -141,6 +198,21 @@ const Community: React.FC = () => {
 
     try {
       if (editingQuestion) {
+        if (editingQuestion.id.startsWith("local-question-")) {
+          const localQuestions = getLocalQuestions(userId);
+          const updatedLocal = localQuestions.map((q) =>
+            q.id === editingQuestion.id
+              ? {
+                  ...q,
+                  question: questionFormData.question,
+                  description: questionFormData.description || null,
+                  updated_at: new Date().toISOString(),
+                }
+              : q
+          );
+          setLocalQuestions(userId, updatedLocal);
+          setUsingLocalCommunityMode(true);
+        } else {
         const { error } = await supabase
           .from("community_questions")
           .update({
@@ -149,7 +221,26 @@ const Community: React.FC = () => {
             updated_at: new Date().toISOString(),
           })
           .eq("id", editingQuestion.id);
-        if (error) throw error;
+          if (error) {
+            if ((error.message || "").toLowerCase().includes("row-level security")) {
+              const localQuestions = getLocalQuestions(userId);
+              const localFallback: Question = {
+                ...editingQuestion,
+                question: questionFormData.question,
+                description: questionFormData.description || null,
+                updated_at: new Date().toISOString(),
+                user_name: userName || "You",
+              };
+              setLocalQuestions(
+                userId,
+                [localFallback, ...localQuestions.filter((q) => q.id !== localFallback.id)]
+              );
+              setUsingLocalCommunityMode(true);
+            } else {
+              throw error;
+            }
+          }
+        }
       } else {
         const { error } = await supabase.from("community_questions").insert([
           {
@@ -158,7 +249,25 @@ const Community: React.FC = () => {
             description: questionFormData.description || null,
           },
         ]);
-        if (error) throw error;
+        if (error) {
+          if ((error.message || "").toLowerCase().includes("row-level security")) {
+            const localQuestions = getLocalQuestions(userId);
+            const now = new Date().toISOString();
+            const newLocalQuestion: Question = {
+              id: `local-question-${Date.now()}`,
+              user_id: userId,
+              question: questionFormData.question,
+              description: questionFormData.description || null,
+              created_at: now,
+              updated_at: now,
+              user_name: userName || "You",
+            };
+            setLocalQuestions(userId, [newLocalQuestion, ...localQuestions]);
+            setUsingLocalCommunityMode(true);
+          } else {
+            throw error;
+          }
+        }
       }
       await fetchQuestions();
       if (!editingQuestion) {
@@ -185,7 +294,16 @@ const Community: React.FC = () => {
     if (!answerText) return;
 
     try {
-      if (editingAnswers[questionId]) {
+      if (editingAnswers[questionId]?.id?.startsWith("local-answer-")) {
+        const localAnswers = getLocalAnswers(userId);
+        const updatedLocal = localAnswers.map((a) =>
+          a.id === editingAnswers[questionId]!.id
+            ? { ...a, answer: answerText, updated_at: new Date().toISOString() }
+            : a
+        );
+        setLocalAnswers(userId, updatedLocal);
+        setEditingAnswers((prev) => ({ ...prev, [questionId]: null }));
+      } else if (editingAnswers[questionId]) {
         const { error } = await supabase
           .from("community_answers")
           .update({
@@ -193,7 +311,24 @@ const Community: React.FC = () => {
             updated_at: new Date().toISOString(),
           })
           .eq("id", editingAnswers[questionId]!.id);
-        if (error) throw error;
+        if (error) {
+          if ((error.message || "").toLowerCase().includes("row-level security")) {
+            const localAnswers = getLocalAnswers(userId);
+            const localFallback: Answer = {
+              ...editingAnswers[questionId]!,
+              answer: answerText,
+              updated_at: new Date().toISOString(),
+              user_name: userName || "You",
+            };
+            setLocalAnswers(
+              userId,
+              [localFallback, ...localAnswers.filter((a) => a.id !== localFallback.id)]
+            );
+            setUsingLocalCommunityMode(true);
+          } else {
+            throw error;
+          }
+        }
         setEditingAnswers((prev) => ({ ...prev, [questionId]: null }));
       } else {
         const { error } = await supabase.from("community_answers").insert([
@@ -203,7 +338,25 @@ const Community: React.FC = () => {
             answer: answerText,
           },
         ]);
-        if (error) throw error;
+        if (error) {
+          if ((error.message || "").toLowerCase().includes("row-level security")) {
+            const localAnswers = getLocalAnswers(userId);
+            const now = new Date().toISOString();
+            const newLocalAnswer: Answer = {
+              id: `local-answer-${Date.now()}`,
+              question_id: questionId,
+              user_id: userId,
+              answer: answerText,
+              created_at: now,
+              updated_at: now,
+              user_name: userName || "You",
+            };
+            setLocalAnswers(userId, [...localAnswers, newLocalAnswer]);
+            setUsingLocalCommunityMode(true);
+          } else {
+            throw error;
+          }
+        }
       }
       setAnswerInputs((prev) => ({ ...prev, [questionId]: "" }));
       await fetchQuestions();
@@ -216,11 +369,25 @@ const Community: React.FC = () => {
   const handleDeleteQuestion = async (questionId: string) => {
     if (!confirm("Are you sure you want to delete this question?")) return;
     try {
+      if (userId && questionId.startsWith("local-question-")) {
+        setLocalQuestions(userId, getLocalQuestions(userId).filter((q) => q.id !== questionId));
+        setLocalAnswers(userId, getLocalAnswers(userId).filter((a) => a.question_id !== questionId));
+        await fetchQuestions();
+        return;
+      }
       const { error } = await supabase
         .from("community_questions")
         .delete()
         .eq("id", questionId);
-      if (error) throw error;
+      if (error) {
+        if (userId && (error.message || "").toLowerCase().includes("row-level security")) {
+          setLocalQuestions(userId, getLocalQuestions(userId).filter((q) => q.id !== questionId));
+          setLocalAnswers(userId, getLocalAnswers(userId).filter((a) => a.question_id !== questionId));
+          setUsingLocalCommunityMode(true);
+        } else {
+          throw error;
+        }
+      }
       await fetchQuestions();
     } catch (err: any) {
       console.error(err);
@@ -231,8 +398,20 @@ const Community: React.FC = () => {
   const handleDeleteAnswer = async (answerId: string, questionId: string) => {
     if (!confirm("Are you sure you want to delete this answer?")) return;
     try {
+      if (userId && answerId.startsWith("local-answer-")) {
+        setLocalAnswers(userId, getLocalAnswers(userId).filter((a) => a.id !== answerId));
+        await fetchQuestions();
+        return;
+      }
       const { error } = await supabase.from("community_answers").delete().eq("id", answerId);
-      if (error) throw error;
+      if (error) {
+        if (userId && (error.message || "").toLowerCase().includes("row-level security")) {
+          setLocalAnswers(userId, getLocalAnswers(userId).filter((a) => a.id !== answerId));
+          setUsingLocalCommunityMode(true);
+        } else {
+          throw error;
+        }
+      }
       await fetchQuestions();
     } catch (err: any) {
       console.error(err);
@@ -318,6 +497,11 @@ const Community: React.FC = () => {
           Ask Question
         </button>
       </div>
+      {usingLocalCommunityMode && (
+        <div className="mb-6 p-4 rounded-2xl border border-yellow-500/20 bg-yellow-500/10 text-yellow-200 text-sm">
+          Community posts are currently saved locally in this browser due to database policy restrictions.
+        </div>
+      )}
 
       {/* Floating Action Button */}
       <button
@@ -423,7 +607,7 @@ const Community: React.FC = () => {
                       <User className="w-4 h-4 text-purple-400" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-white">{question.user_name}</p>
+                      <p className="text-sm font-medium text-white">Posted by {question.user_name}</p>
                       <p className="text-xs text-gray-500 flex items-center gap-1">
                         <Clock className="w-3 h-3" />
                         {new Date(question.created_at).toLocaleDateString()}
@@ -468,7 +652,7 @@ const Community: React.FC = () => {
                         <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center">
                           <User className="w-3 h-3 text-blue-400" />
                         </div>
-                        <span className="text-sm font-medium text-white">{answer.user_name}</span>
+                        <span className="text-sm font-medium text-white">Answered by {answer.user_name}</span>
                         <span className="text-xs text-gray-500">
                           {new Date(answer.created_at).toLocaleDateString()}
                         </span>

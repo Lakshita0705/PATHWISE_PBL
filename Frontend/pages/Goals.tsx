@@ -25,6 +25,21 @@ const Goals: React.FC = () => {
     deadline: "",
   });
   const [loading, setLoading] = useState(true);
+  const [usingLocalGoalsMode, setUsingLocalGoalsMode] = useState(false);
+
+  const getLocalGoals = (uid: string): Goal[] => {
+    try {
+      const raw = localStorage.getItem(`user_goals_${uid}`);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const setLocalGoals = (uid: string, data: Goal[]) => {
+    localStorage.setItem(`user_goals_${uid}`, JSON.stringify(data));
+  };
 
   useEffect(() => {
     const init = async () => {
@@ -45,9 +60,16 @@ const Goals: React.FC = () => {
       .order("created_at", { ascending: false });
     if (error) {
       console.error(error);
+      setGoals(getLocalGoals(uid));
+      setUsingLocalGoalsMode(true);
       return;
     }
-    setGoals(data || []);
+    const localGoals = getLocalGoals(uid);
+    const serverGoals = data || [];
+    const mergedById = new Map<string, Goal>();
+    [...serverGoals, ...localGoals].forEach((g: Goal) => mergedById.set(g.id, g));
+    setGoals(Array.from(mergedById.values()));
+    setUsingLocalGoalsMode(false);
   };
 
   const handleInputChange = (
@@ -72,7 +94,25 @@ const Goals: React.FC = () => {
             updated_at: new Date().toISOString(),
           })
           .eq("id", editingGoal.id);
-        if (error) throw error;
+        if (error) {
+          if ((error.message || "").toLowerCase().includes("row-level security")) {
+            const localGoals = getLocalGoals(userId);
+            const updated = localGoals.map((g) =>
+              g.id === editingGoal.id
+                ? {
+                    ...g,
+                    goal_title: formData.goal_title,
+                    description: formData.description || null,
+                    deadline: formData.deadline,
+                  }
+                : g
+            );
+            setLocalGoals(userId, updated);
+            setUsingLocalGoalsMode(true);
+          } else {
+            throw error;
+          }
+        }
       } else {
         const { error } = await supabase.from("user_goals").insert([
           {
@@ -82,7 +122,23 @@ const Goals: React.FC = () => {
             deadline: formData.deadline,
           },
         ]);
-        if (error) throw error;
+        if (error) {
+          if ((error.message || "").toLowerCase().includes("row-level security")) {
+            const localGoals = getLocalGoals(userId);
+            const newGoal: Goal = {
+              id: `local-goal-${Date.now()}`,
+              goal_title: formData.goal_title,
+              description: formData.description || null,
+              deadline: formData.deadline,
+              status: "active",
+              created_at: new Date().toISOString(),
+            };
+            setLocalGoals(userId, [newGoal, ...localGoals]);
+            setUsingLocalGoalsMode(true);
+          } else {
+            throw error;
+          }
+        }
       }
       await fetchGoals(userId);
       setIsFormOpen(false);
@@ -97,6 +153,15 @@ const Goals: React.FC = () => {
   const handleStatusChange = async (goalId: string, newStatus: string) => {
     if (!userId) return;
     try {
+      if (goalId.startsWith("local-goal-")) {
+        const localGoals = getLocalGoals(userId);
+        const updated = localGoals.map((g) =>
+          g.id === goalId ? { ...g, status: newStatus as Goal["status"] } : g
+        );
+        setLocalGoals(userId, updated);
+        await fetchGoals(userId);
+        return;
+      }
       const { error } = await supabase
         .from("user_goals")
         .update({ status: newStatus, updated_at: new Date().toISOString() })
@@ -113,6 +178,16 @@ const Goals: React.FC = () => {
       }
     } catch (err: any) {
       console.error(err);
+      if ((err?.message || "").toLowerCase().includes("row-level security")) {
+        const localGoals = getLocalGoals(userId);
+        const updated = localGoals.map((g) =>
+          g.id === goalId ? { ...g, status: newStatus as Goal["status"] } : g
+        );
+        setLocalGoals(userId, updated);
+        setUsingLocalGoalsMode(true);
+        await fetchGoals(userId);
+        return;
+      }
       alert("Failed to update goal status");
     }
   };
@@ -121,11 +196,24 @@ const Goals: React.FC = () => {
     if (!confirm("Are you sure you want to delete this goal?")) return;
     if (!userId) return;
     try {
+      if (goalId.startsWith("local-goal-")) {
+        const localGoals = getLocalGoals(userId).filter((g) => g.id !== goalId);
+        setLocalGoals(userId, localGoals);
+        await fetchGoals(userId);
+        return;
+      }
       const { error } = await supabase.from("user_goals").delete().eq("id", goalId);
       if (error) throw error;
       await fetchGoals(userId);
     } catch (err: any) {
       console.error(err);
+      if ((err?.message || "").toLowerCase().includes("row-level security")) {
+        const localGoals = getLocalGoals(userId).filter((g) => g.id !== goalId);
+        setLocalGoals(userId, localGoals);
+        setUsingLocalGoalsMode(true);
+        await fetchGoals(userId);
+        return;
+      }
       alert("Failed to delete goal");
     }
   };
@@ -186,6 +274,11 @@ const Goals: React.FC = () => {
           New Goal
         </button>
       </div>
+      {usingLocalGoalsMode && (
+        <div className="mb-6 p-4 rounded-2xl border border-yellow-500/20 bg-yellow-500/10 text-yellow-200 text-sm">
+          Goals are currently saved locally in this browser due to database policy restrictions.
+        </div>
+      )}
 
       {/* Form Modal */}
       {isFormOpen && (
