@@ -92,14 +92,15 @@ const Community: React.FC = () => {
       if (profile) {
         setUserName(profile.name || profile.email || "User");
       }
-      await fetchQuestions();
+      await fetchQuestions(user.id);
       setLoading(false);
     };
     init();
   }, []);
 
-  const fetchQuestions = async () => {
-    if (!userId) return;
+  const fetchQuestions = async (uid?: string) => {
+    const currentUserId = uid || userId;
+    if (!currentUserId) return;
     const { data, error } = await supabase
       .from("community_questions")
       .select("*")
@@ -107,12 +108,12 @@ const Community: React.FC = () => {
 
     if (error) {
       console.error(error);
-      const localQuestions = getLocalQuestions(userId).map((q) => ({
+      const localQuestions = getLocalQuestions(currentUserId).map((q) => ({
         ...q,
         user_name: q.user_name || userName || "You",
       }));
       setQuestions(localQuestions);
-      await fetchAnswersForQuestions(localQuestions.map((q) => q.id));
+      await fetchAnswersForQuestions(localQuestions.map((q) => q.id), currentUserId);
       setUsingLocalCommunityMode(true);
       return;
     }
@@ -132,17 +133,18 @@ const Community: React.FC = () => {
       })
     );
 
-    const localQuestions = getLocalQuestions(userId);
+    const localQuestions = getLocalQuestions(currentUserId);
     const merged = [...questionsWithUsers, ...localQuestions].sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
     setQuestions(merged);
-    await fetchAnswersForQuestions(merged.map((q) => q.id));
+    await fetchAnswersForQuestions(merged.map((q) => q.id), currentUserId);
     setUsingLocalCommunityMode(false);
   };
 
-  const fetchAnswersForQuestions = async (questionIds: string[]) => {
-    if (!userId) return;
+  const fetchAnswersForQuestions = async (questionIds: string[], uid?: string) => {
+    const currentUserId = uid || userId;
+    if (!currentUserId) return;
     if (questionIds.length === 0) return;
     const { data, error } = await supabase
       .from("community_answers")
@@ -152,7 +154,7 @@ const Community: React.FC = () => {
 
     if (error) {
       console.error(error);
-      const localAnswers = getLocalAnswers(userId);
+      const localAnswers = getLocalAnswers(currentUserId);
       const groupedLocal: Record<string, Answer[]> = {};
       localAnswers.forEach((a) => {
         if (questionIds.includes(a.question_id)) {
@@ -184,7 +186,7 @@ const Community: React.FC = () => {
       if (!grouped[a.question_id]) grouped[a.question_id] = [];
       grouped[a.question_id].push(a);
     });
-    const localAnswers = getLocalAnswers(userId);
+    const localAnswers = getLocalAnswers(currentUserId);
     localAnswers.forEach((a) => {
       if (!grouped[a.question_id]) grouped[a.question_id] = [];
       grouped[a.question_id].push(a);
