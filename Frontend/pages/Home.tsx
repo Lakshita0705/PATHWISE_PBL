@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { 
@@ -16,14 +16,49 @@ import {
   Trophy,
   Rocket,
   ShieldCheck,
-  Calendar,
   UserCheck
 } from 'lucide-react';
 import Footer from '../components/Footer';
 import MentorApplicationForm from '../components/MentorApplicationForm';
+import { supabase } from '../lib/supabaseClient';
 
 const Home: React.FC = () => {
   const [isMentorFormOpen, setIsMentorFormOpen] = useState(false);
+  const [mentorPreview, setMentorPreview] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadMentors = async () => {
+      const { data: mentorData, error: mentorErr } = await supabase
+        .from("mentors")
+        .select("*")
+        .order("rating", { ascending: false })
+        .limit(3);
+
+      if (!mentorErr && mentorData && mentorData.length > 0) {
+        setMentorPreview(mentorData);
+        return;
+      }
+
+      const { data: profileMentors } = await supabase
+        .from("profiles")
+        .select("id,name,skills")
+        .eq("role", "mentor")
+        .limit(3);
+
+      const normalized = (profileMentors || []).map((p: any) => ({
+        id: p.id,
+        name: p.name || "Mentor",
+        role: "Mentor",
+        company: "Pathwise Mentor",
+        rating: 5.0,
+        expertise: Array.isArray(p.skills) ? p.skills : [],
+        image_url: "https://placehold.co/200x200/png",
+      }));
+      setMentorPreview(normalized);
+    };
+
+    loadMentors();
+  }, []);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -186,13 +221,13 @@ const Home: React.FC = () => {
             <p className="text-gray-400 text-lg">Direct access to industry leaders from the world's most innovative companies.</p>
           </div>
           <div className="flex items-center gap-4">
-            <button
-              onClick={() => setIsMentorFormOpen(true)}
+            <Link
+              to="/mentor-login"
               className="px-8 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-bold flex items-center gap-2 hover:opacity-90 transition-opacity group"
             >
               <UserCheck size={18} />
               Become a Mentor
-            </button>
+            </Link>
             <Link to="/mentorship" className="px-8 py-3 rounded-xl border border-white/10 hover:bg-white/5 transition-all text-sm font-bold flex items-center gap-2 group">
               View All Mentors <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
             </Link>
@@ -200,36 +235,34 @@ const Home: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {[
-            { name: "Ananya Sharma", role: "Principal Architect", company: "NVIDIA", rating: 5.0, skills: ["AI Systems", "Scaling"], credibility: 75 },
-            { name: "Rohan Mehra", role: "Sr. Product Designer", company: "Linear", rating: 4.9, skills: ["UX Design", "Product"], credibility: 60 },
-            { name: "Vikram Malhotra", role: "Staff Engineer", company: "Stripe", rating: 5.0, skills: ["Go", "Distributed Systems"], credibility: 85 }
-          ].map((mentor, i) => (
-            <div key={i} className="glass rounded-3xl p-8 border border-white/5 hover:border-purple-500/20 transition-all flex flex-col group">
+          {mentorPreview.map((mentor, i) => (
+            <div key={mentor.id || i} className="glass rounded-3xl p-8 border border-white/5 hover:border-purple-500/20 transition-all flex flex-col group">
               <div className="flex justify-between items-start mb-6">
-                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-1">
-                  <div className="w-full h-full rounded-xl bg-zinc-900 flex items-center justify-center text-3xl">👤</div>
-                </div>
+                <img
+                  src={mentor.image_url || "https://placehold.co/200x200/png"}
+                  alt={mentor.name}
+                  className="w-20 h-20 rounded-2xl object-cover"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = "https://placehold.co/200x200/png";
+                  }}
+                />
                 <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-yellow-500/10 text-yellow-500 font-bold text-xs">
-                  <Star size={14} className="fill-current" /> {mentor.rating}
+                  <Star size={14} className="fill-current" /> {mentor.rating || 5}
                 </div>
               </div>
               <h3 className="text-xl font-bold mb-1">{mentor.name}</h3>
               <p className="text-sm text-purple-400 font-medium mb-4">{mentor.role} at <span className="text-white">{mentor.company}</span></p>
               
               <div className="flex flex-wrap gap-2 mb-8 flex-1">
-                {mentor.skills.map(s => (
+                {(mentor.expertise || mentor.skills || []).slice(0, 4).map((s: string) => (
                   <span key={s} className="px-2 py-1 rounded bg-white/5 text-[10px] font-bold text-gray-400 uppercase tracking-widest">{s}</span>
                 ))}
               </div>
 
               <div className="space-y-3 pt-6 border-t border-white/5">
-                <button className="w-full py-3 rounded-xl bg-purple-600 text-white font-bold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-all">
-                  <Calendar size={16} /> Book Session
-                </button>
                 <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
                   <ShieldCheck size={14} className="text-green-500" />
-                  <span>Unlocked at {mentor.credibility} Credibility</span>
+                  <span>Verified Mentor</span>
                 </div>
               </div>
             </div>
