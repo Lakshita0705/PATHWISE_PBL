@@ -19,6 +19,7 @@ const Profile: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [authEmail, setAuthEmail] = useState("");
+  const [completedRoadmaps, setCompletedRoadmaps] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     name: "",
     careerGoal: "",
@@ -64,6 +65,29 @@ const Profile: React.FC = () => {
             : "",
         });
       }
+
+      const { data: roadmapRows } = await supabase
+        .from("roadmaps")
+        .select("topic,is_completed")
+        .eq("user_id", user.id);
+      const localRaw = localStorage.getItem(`roadmaps_${user.id}`);
+      let localRows: any[] = [];
+      try {
+        localRows = localRaw ? JSON.parse(localRaw) : [];
+      } catch {
+        localRows = [];
+      }
+      const mergedRows = [...(roadmapRows || []), ...(Array.isArray(localRows) ? localRows : [])];
+      const grouped = mergedRows.reduce((acc: Record<string, any[]>, row: any) => {
+        const topic = row.topic || "Untitled";
+        if (!acc[topic]) acc[topic] = [];
+        acc[topic].push(row);
+        return acc;
+      }, {});
+      const completed = Object.entries(grouped)
+        .filter(([, modules]) => modules.length > 0 && modules.every((m) => m.is_completed))
+        .map(([topic]) => topic);
+      setCompletedRoadmaps(completed);
 
       setLoading(false);
     };
@@ -264,6 +288,27 @@ const Profile: React.FC = () => {
                 />
               </div>
             </div>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="glass rounded-3xl p-8 border border-white/10 mt-6"
+          >
+            <h3 className="text-lg font-bold text-white mb-4">Completed Roadmaps</h3>
+            {completedRoadmaps.length === 0 ? (
+              <p className="text-sm text-gray-400">No completed roadmaps yet.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {completedRoadmaps.map((topic) => (
+                  <span
+                    key={topic}
+                    className="px-3 py-1 rounded-full bg-green-500/10 text-green-300 text-xs font-semibold"
+                  >
+                    {topic}
+                  </span>
+                ))}
+              </div>
+            )}
           </motion.div>
         </div>
       </div>

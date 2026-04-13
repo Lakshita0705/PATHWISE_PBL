@@ -3,7 +3,6 @@ import { motion } from "framer-motion";
 import {
   Star,
   MessageSquare,
-  Calendar,
   ShieldCheck,
 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
@@ -94,38 +93,6 @@ const Mentorship: React.FC = () => {
     fetchData();
   }, []);
 
-  // 🔥 Book Mentor Session (No Credibility Restriction)
-  const bookSession = async (mentorId: string) => {
-    if (!userId) return;
-
-    // 1️⃣ Insert session
-    const { error } = await supabase.from("mentor_sessions").insert([
-      {
-        user_id: userId,
-        mentor_id: mentorId,
-        session_date: new Date(),
-        status: "scheduled",
-      },
-    ]);
-
-    if (error) {
-      console.error(error);
-      alert("Booking failed");
-      return;
-    }
-
-    // 2️⃣ Insert activity log
-    await supabase.from("activity_logs").insert([
-      {
-        user_id: userId,
-        action: "MENTOR_BOOKED",
-        metadata: { mentor_id: mentorId },
-      },
-    ]);
-
-    alert("Session booked successfully!");
-  };
-
   return (
     <div className="pb-12">
       <div className="mb-10">
@@ -198,14 +165,6 @@ const Mentorship: React.FC = () => {
             </div>
 
             <div className="mt-auto space-y-3">
-              <button
-                onClick={() => bookSession(mentor.id)}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold text-sm"
-              >
-                <Calendar className="w-4 h-4 inline mr-2" />
-                Book Session
-              </button>
-
               <button
                 onClick={() => navigate(`/chat/${mentor.id}`)}
                 className="w-full py-3 rounded-xl glass border border-white/5 text-gray-300 font-bold text-sm"

@@ -20,12 +20,51 @@ import learningPaths from "../data/learningPath.json";
 import { recalculateMetrics } from "../lib/metricsEngine";
 import { updateCredibility } from "../services/profileService";
 
+const SKIP_BEGINNER = ["Advanced", "Production", "Scaling", "Enterprise", "Capstone"];
+const SKIP_ADVANCED = ["Basics", "Fundamentals", "Introduction", "Getting Started"];
+
+const adaptSteps = (steps: any[], level: "beginner" | "intermediate" | "advanced") => {
+  let filtered = steps;
+  if (level === "intermediate") {
+    filtered = steps.filter(
+      (s) => !SKIP_ADVANCED.some((k) => String(s.title || "").includes(k))
+    );
+    if (filtered.length === 0) filtered = steps;
+  } else if (level === "advanced") {
+    filtered = steps.filter(
+      (s) =>
+        !SKIP_BEGINNER.some((k) => String(s.title || "").includes(k)) &&
+        !SKIP_ADVANCED.some((k) => String(s.title || "").includes(k))
+    );
+    if (filtered.length < 2) filtered = steps.slice(-3);
+  }
+  return filtered.map((s, i) => ({ ...s, step: i + 1 }));
+};
+
 const Roadmap: React.FC = () => {
   const [roadmapData, setRoadmapData] = useState<any[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [selectedPath, setSelectedPath] = useState<string>("");
   const [activeRoadmapTopic, setActiveRoadmapTopic] = useState<string>("");
   const [expandedResources, setExpandedResources] = useState<Set<number>>(new Set());
+  const [level, setLevel] = useState<"beginner" | "intermediate" | "advanced">("beginner");
+  const [generatorError, setGeneratorError] = useState<string>("");
+  const [usingLocalMode, setUsingLocalMode] = useState<boolean>(false);
+  const [congratsTopic, setCongratsTopic] = useState<string>("");
+
+  const getLocalRoadmaps = (uid: string) => {
+    try {
+      const raw = localStorage.getItem(`roadmaps_${uid}`);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const setLocalRoadmaps = (uid: string, data: any[]) => {
+    localStorage.setItem(`roadmaps_${uid}`, JSON.stringify(data));
+  };
 
   /* ---------------- FETCH USER + ROADMAP ---------------- */
 
@@ -39,10 +78,16 @@ const Roadmap: React.FC = () => {
 
     if (error) {
       console.error(error);
+      const localData = getLocalRoadmaps(uid);
+      setRoadmapData(localData);
+      if (localData.length > 0 && !activeRoadmapTopic) {
+        setActiveRoadmapTopic(localData[0].topic);
+      }
       return;
     }
 
-    const nextData = data || [];
+    const localData = getLocalRoadmaps(uid);
+    const nextData = [...(data || []), ...localData];
     setRoadmapData(nextData);
 
     if (!activeRoadmapTopic && nextData.length > 0) {
@@ -81,33 +126,27 @@ const Roadmap: React.FC = () => {
       return;
     }
 
-    // Confirm replace for the selected topic only
+    const generatedTopic = selectedPath;
     const confirm = window.confirm(
-      `This will replace your existing "${selectedPath}" roadmap (if any). Continue?`
+      `This will replace your existing "${generatedTopic}" roadmap (if any). Continue?`
     );
     if (!confirm) return;
 
-    // Delete existing roadmap only for selected topic
     await supabase
       .from("roadmaps")
       .delete()
       .eq("user_id", userId)
-      .eq("topic", selectedPath);
+      .eq("topic", generatedTopic);
 
-    // Format steps
-    const formatted = selected.roadmap.map(
+    const adaptedSteps = adaptSteps(selected.roadmap, level);
+    const formatted = adaptedSteps.map(
       (step: any, index: number) => ({
         user_id: userId,
-        topic: selectedPath,
+        topic: generatedTopic,
         order_index: index,
         title: step.title,
         description: step.description,
-        type: "learning",
-        resources: step.resources,
         is_completed: false,
-        is_unlocked: index === 0,
-        difficulty: 0,
-        score: null,
       })
     );
 
@@ -117,10 +156,31 @@ const Roadmap: React.FC = () => {
 
     if (error) {
       console.error(error);
+      if ((error.message || "").toLowerCase().includes("row-level security")) {
+        const localRows = formatted.map((row: any, index: number) => ({
+          ...row,
+          id: `local-${Date.now()}-${index}`,
+        }));
+        const currentLocal = getLocalRoadmaps(userId).filter(
+          (item: any) => item.topic !== generatedTopic
+        );
+        const nextLocal = [...currentLocal, ...localRows];
+        setLocalRoadmaps(userId, nextLocal);
+        setUsingLocalMode(true);
+        setGeneratorError(
+          "Saved locally (database policy blocked insert). You can still complete steps."
+        );
+        setActiveRoadmapTopic(generatedTopic);
+        await fetchRoadmap(userId);
+        return;
+      }
+      setGeneratorError(error.message || "Failed to save generated roadmap. Please try again.");
       return;
     }
+    setUsingLocalMode(false);
+    setGeneratorError("");
 
-    setActiveRoadmapTopic(selectedPath);
+    setActiveRoadmapTopic(generatedTopic);
     await fetchRoadmap(userId);
   };
 
@@ -128,22 +188,28 @@ const Roadmap: React.FC = () => {
 
   const completeModule = async (module: any, index: number) => {
     if (!userId) return;
-    if (!module.is_unlocked || module.is_completed) return;
+    const locked = index !== 0 && !visibleRoadmap[index - 1]?.is_completed;
+    if (locked || module.is_completed) return;
+    const willCompleteRoadmap =
+      visibleRoadmap.filter((m) => m.is_completed).length + 1 === visibleRoadmap.length;
+
+    if (String(module.id).startsWith("local-")) {
+      const localRows = getLocalRoadmaps(userId);
+      const updated = localRows.map((row: any) =>
+        row.id === module.id ? { ...row, is_completed: true } : row
+      );
+      setLocalRoadmaps(userId, updated);
+      window.dispatchEvent(new Event("roadmapProgressUpdated"));
+      if (willCompleteRoadmap) setCongratsTopic(activeRoadmapTopic);
+      await fetchRoadmap(userId);
+      return;
+    }
 
     // Mark complete
     await supabase
       .from("roadmaps")
       .update({ is_completed: true })
       .eq("id", module.id);
-
-    // Unlock next
-    const next = visibleRoadmap[index + 1];
-    if (next) {
-      await supabase
-        .from("roadmaps")
-        .update({ is_unlocked: true })
-        .eq("id", next.id);
-    }
 
     // Log activity for metrics
     await supabase.from("activity_logs").insert([
@@ -168,23 +234,48 @@ const Roadmap: React.FC = () => {
 
     window.dispatchEvent(new Event("credibilityUpdated"));
     window.dispatchEvent(new Event("roadmapProgressUpdated"));
+    if (willCompleteRoadmap) setCongratsTopic(activeRoadmapTopic);
 
     await fetchRoadmap(userId);
   };
 
   /* ---------------- PROGRESS ---------------- */
 
-  const topics = Array.from(
-    new Set(
-      roadmapData
-        .map((item) => item.topic)
-        .filter((topic): topic is string => Boolean(topic))
-    )
-  );
+  const roadmapGroups = roadmapData.reduce((acc: Record<string, any[]>, item: any) => {
+    const topic = item.topic || "Untitled";
+    if (!acc[topic]) acc[topic] = [];
+    acc[topic].push(item);
+    return acc;
+  }, {});
 
-  const visibleRoadmap = roadmapData.filter(
-    (item) => item.topic === activeRoadmapTopic
-  );
+  const inProgressTopics = Object.entries(roadmapGroups)
+    .filter(([, modules]) => (modules as any[]).some((m) => !m.is_completed))
+    .map(([topic]) => topic);
+
+  const completedTopics = Object.entries(roadmapGroups)
+    .filter(
+      ([, modules]) =>
+        (modules as any[]).length > 0 && (modules as any[]).every((m) => m.is_completed)
+    )
+    .map(([topic]) => topic);
+
+  const topics = inProgressTopics;
+
+  const visibleRoadmap = topics.includes(activeRoadmapTopic)
+    ? (roadmapGroups[activeRoadmapTopic] || []).sort(
+        (a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0)
+      )
+    : [];
+
+  useEffect(() => {
+    if (topics.length === 0) {
+      if (activeRoadmapTopic) setActiveRoadmapTopic("");
+      return;
+    }
+    if (!topics.includes(activeRoadmapTopic)) {
+      setActiveRoadmapTopic(topics[0]);
+    }
+  }, [topics, activeRoadmapTopic]);
 
   const total = visibleRoadmap.length;
   const completed = visibleRoadmap.filter((m) => m.is_completed).length;
@@ -209,6 +300,17 @@ const Roadmap: React.FC = () => {
       else next.add(index);
       return next;
     });
+  };
+
+  const getResourcesForModule = (module: any) => {
+    const sourcePath = (learningPaths as any[]).find((p: any) => p.topic === module.topic);
+    if (!sourcePath || !Array.isArray(sourcePath.roadmap)) return null;
+    const matchedByTitle = sourcePath.roadmap.find(
+      (step: any) => String(step.title || "").trim() === String(module.title || "").trim()
+    );
+    if (matchedByTitle?.resources) return matchedByTitle.resources;
+    const matchedByIndex = sourcePath.roadmap[module.order_index];
+    return matchedByIndex?.resources || null;
   };
 
   const renderResourceLinks = (resources: any) => {
@@ -285,23 +387,49 @@ const Roadmap: React.FC = () => {
   return (
     <div className="max-w-5xl mx-auto pb-20">
 
-      {/* PATH SELECTOR */}
-      <div className="mb-10 flex flex-col sm:flex-row sm:items-center gap-4">
+      {/* ROADMAP GENERATOR */}
+      <div className="mb-8 p-5 rounded-2xl border border-white/10 bg-white/5">
+        <h2 className="text-xl font-semibold text-white mb-1">Career Roadmap Generator</h2>
+        <p className="text-sm text-gray-400 mb-4">
+          Choose a role, choose level, then generate a step-by-step roadmap students can complete.
+        </p>
         <select
           value={selectedPath}
           onChange={(e) => setSelectedPath(e.target.value)}
-          className="bg-zinc-800 text-white p-3 rounded-lg border border-white/10 focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer min-w-[200px] [&_option]:bg-zinc-800 [&_option]:text-white"
+          className="w-full mb-4 bg-zinc-800 text-white p-3 rounded-lg border border-white/10 focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer [&_option]:bg-zinc-800 [&_option]:text-white"
           style={{ colorScheme: "dark" }}
         >
-          <option value="">Choose Path</option>
+          <option value="">Choose Role / Roadmap</option>
           {learningPaths.map((path: any) => (
             <option key={path.topic} value={path.topic}>
               {path.topic}
             </option>
           ))}
         </select>
-
+        <div className="flex gap-2 mb-4">
+          {(["beginner", "intermediate", "advanced"] as const).map((lvl) => (
+            <button
+              key={lvl}
+              type="button"
+              onClick={() => setLevel(lvl)}
+              className={`px-4 py-2 rounded-lg text-sm transition-colors ${
+                level === lvl
+                  ? "bg-purple-600 text-white"
+                  : "bg-white/5 text-gray-300 hover:bg-white/10"
+              }`}
+            >
+              {lvl.charAt(0).toUpperCase() + lvl.slice(1)}
+            </button>
+          ))}
+        </div>
+        {generatorError && <p className="text-sm text-red-400 mb-3">{generatorError}</p>}
+        {usingLocalMode && (
+          <p className="text-xs text-yellow-300 mb-3">
+            Local mode is active for roadmap save/complete in this browser.
+          </p>
+        )}
         <button
+          type="button"
           onClick={generateRoadmapFromJSON}
           className="px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg text-white"
         >
@@ -331,6 +459,11 @@ const Roadmap: React.FC = () => {
               </button>
             ))}
           </div>
+        </div>
+      )}
+      {congratsTopic && (
+        <div className="mb-8 p-4 rounded-xl border border-green-400/20 bg-green-500/10 text-green-200">
+          Congratulations! You completed the <span className="font-semibold">{congratsTopic}</span> roadmap.
         </div>
       )}
 
@@ -399,7 +532,7 @@ const Roadmap: React.FC = () => {
                         <p className="text-gray-400 text-sm">
                           {module.description}
                         </p>
-                        {module.resources && (
+                        {getResourcesForModule(module) && (
                           <>
                             <button
                               type="button"
@@ -416,7 +549,8 @@ const Roadmap: React.FC = () => {
                               )}
                               Resources
                             </button>
-                            {expandedResources.has(index) && renderResourceLinks(module.resources)}
+                            {expandedResources.has(index) &&
+                              renderResourceLinks(getResourcesForModule(module))}
                           </>
                         )}
                       </div>
@@ -444,7 +578,9 @@ const Roadmap: React.FC = () => {
           {visibleRoadmap.length === 0 && (
             <div className="p-6 rounded-2xl border border-white/10 bg-white/5 text-gray-400">
               {topics.length === 0
-                ? "Generate your first roadmap to get started."
+                ? completedTopics.length > 0
+                  ? "All your generated roadmaps are completed. Great job!"
+                  : "Generate your first roadmap to get started."
                 : "Select a roadmap topic to view modules."}
             </div>
           )}
