@@ -82,7 +82,11 @@ const Community: React.FC = () => {
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        await fetchQuestions("shared");
+        setLoading(false);
+        return;
+      }
       setUserId(user.id);
       const { data: profile } = await supabase
         .from("profiles")
@@ -99,8 +103,7 @@ const Community: React.FC = () => {
   }, []);
 
   const fetchQuestions = async (uid?: string) => {
-    const currentUserId = uid || userId;
-    if (!currentUserId) return;
+    const currentUserId = uid || userId || "shared";
     const { data, error } = await supabase
       .from("community_questions")
       .select("*")
@@ -143,8 +146,7 @@ const Community: React.FC = () => {
   };
 
   const fetchAnswersForQuestions = async (questionIds: string[], uid?: string) => {
-    const currentUserId = uid || userId;
-    if (!currentUserId) return;
+    const currentUserId = uid || userId || "shared";
     if (questionIds.length === 0) return;
     const { data, error } = await supabase
       .from("community_answers")
